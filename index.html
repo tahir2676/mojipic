@@ -1,0 +1,1490 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mojipic Controller</title>
+<meta name="theme-color" content="#0b0d10">
+<style>
+:root{
+  --bg:#0b0d10; --panel:#13161b; --panel2:#1a1e25; --line:#262b34; --line2:#3a414d; --text:#e8eaed; --muted:#8b93a1;
+  --accent:#ffb020; --accent-ink:#1a1200; --ok:#3ddc84; --bad:#ff5a5f; --field:#0b0d10; --toast:#20252e; --radius:14px;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; color-scheme:dark;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --bg:#f3f1ec; --panel:#ffffff; --panel2:#f6f4ef; --line:#e2ddd3; --line2:#cfc8bb; --text:#1d1f23; --muted:#6b6f78;
+    --accent:#e08a00; --accent-ink:#ffffff; --ok:#14a35a; --bad:#d63a3f; --field:#faf9f6; --toast:#2a2d33; color-scheme:light;
+  }
+}
+:root[data-theme="light"]{
+  --bg:#f3f1ec; --panel:#ffffff; --panel2:#f6f4ef; --line:#e2ddd3; --line2:#cfc8bb; --text:#1d1f23; --muted:#6b6f78;
+  --accent:#e08a00; --accent-ink:#ffffff; --ok:#14a35a; --bad:#d63a3f; --field:#faf9f6; --toast:#2a2d33; color-scheme:light;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body{padding:max(12px,env(safe-area-inset-top)) 16px 48px}
+.wrap{max-width:900px;margin:0 auto}
+header{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+header h1{font-size:19px;margin:0}
+header h1 span{color:var(--accent)}
+.pill{display:inline-flex;align-items:center;gap:7px;padding:5px 11px;border-radius:999px;background:var(--panel);border:1px solid var(--line);font-size:13px;color:var(--muted)}
+.dot{width:8px;height:8px;border-radius:50%;background:#777}
+.pill.on .dot{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.pill.busy .dot{background:var(--accent);animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.3}}
+.grow{flex:1}
+button,.btn{appearance:none;border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:10px 14px;border-radius:10px;font:inherit;font-weight:550;cursor:pointer;touch-action:manipulation;display:inline-flex;align-items:center;gap:6px;justify-content:center}
+button:hover,.btn:hover{border-color:var(--line2)}
+button:disabled{opacity:.4;cursor:not-allowed}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+button.ghost{background:transparent}
+button.danger{color:var(--bad)}
+button.sm{padding:6px 10px;font-size:13px;border-radius:8px}
+button.sel,.seg button.sel{outline:2px solid var(--accent);outline-offset:1px}
+.seg{display:inline-flex;gap:6px;flex-wrap:wrap}
+.banner{padding:12px 14px;border-radius:12px;background:#2a1d10;border:1px solid #5a3b10;color:#ffd79a;margin-bottom:12px;font-size:14px}
+.banner.hide{display:none}
+.runner{display:none;align-items:center;gap:10px;padding:9px 12px;border-radius:12px;background:var(--panel);border:1px solid var(--accent);margin-bottom:12px;font-size:14px}
+.runner.show{display:flex}
+nav.tabs{display:flex;gap:4px;overflow-x:auto;padding-bottom:4px;margin-bottom:12px;scrollbar-width:none}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs button{white-space:nowrap;padding:8px 12px;background:transparent;border-color:transparent;color:var(--muted)}
+nav.tabs button.active{background:var(--panel);border-color:var(--line);color:var(--text)}
+section.tab{display:none}
+section.tab.active{display:block}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.card h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 12px;font-weight:650;display:flex;align-items:center;gap:8px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.row+.row,.row+.hint+.row{margin-top:12px}
+label.f{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)}
+label.i{display:inline-flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)}
+input[type=number],input[type=text],input[type=search],select{background:var(--field);color:var(--text);border:1px solid var(--line);border-radius:9px;padding:9px 10px;font:inherit;min-width:0}
+input[type=range]{width:100%;accent-color:var(--accent)}
+input[type=color]{width:44px;height:38px;border:1px solid var(--line);border-radius:9px;background:var(--field);padding:3px}
+input[type=file]{display:none}
+.hint{font-size:13px;color:var(--muted);margin:8px 0 0}
+.split{display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:start}
+@media (max-width:620px){.split{grid-template-columns:1fr}}
+canvas.led{background:#000;border-radius:12px;display:block;max-width:100%;height:auto}
+.swatches{display:flex;gap:8px;flex-wrap:wrap}
+.sw{width:32px;height:32px;border-radius:50%;border:2px solid var(--line);padding:0}
+.sw.sel{outline:2px solid var(--accent);outline-offset:2px}
+.progress{height:8px;background:var(--field);border-radius:99px;overflow:hidden;border:1px solid var(--line)}
+.progress>i{display:block;height:100%;width:0;background:var(--accent);transition:width .15s}
+#log{font:12px/1.5 var(--mono);white-space:pre-wrap;word-break:break-all;max-height:340px;overflow:auto;background:var(--field);border-radius:10px;padding:10px;color:var(--muted);margin-top:10px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:8px}
+.lib-grid{max-height:56vh;overflow:auto;padding:2px}
+.tile{background:#000;border:1px solid var(--line);border-radius:10px;padding:4px;cursor:pointer;position:relative;aspect-ratio:1}
+.tile canvas{width:100%;height:100%;display:block}
+.tile.sel{outline:2px solid var(--accent)}
+.tile .badge{position:absolute;right:3px;bottom:3px;font:10px var(--mono);background:rgba(0,0,0,.75);padding:0 4px;border-radius:4px;color:#ffb020}
+.tile.ondev::after{content:"";position:absolute;left:5px;top:5px;width:7px;height:7px;border-radius:50%;background:#3ddc84}
+.kv{font:13px var(--mono);color:var(--muted)}
+.muted{color:var(--muted)}
+.toggle{display:inline-flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
+.toggle input{width:18px;height:18px;accent-color:var(--accent)}
+#drawCanvas{touch-action:none;cursor:crosshair}
+.tools{display:flex;gap:6px;flex-wrap:wrap}
+.tools button{min-width:44px}
+.frames{display:flex;gap:6px;overflow-x:auto;padding:4px 2px}
+.frames .fr{flex:0 0 auto;width:48px;height:48px;background:#000;border:1px solid var(--line);border-radius:8px;padding:2px;cursor:pointer;position:relative}
+.frames .fr.sel{outline:2px solid var(--accent)}
+.frames .fr span{position:absolute;left:3px;top:1px;font:10px var(--mono);color:#aaa}
+.frames canvas{width:100%;height:100%;display:block}
+.favs{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.fav{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.fav .top{display:flex;gap:10px;align-items:center;min-width:0}
+.fav .thumb{width:44px;height:44px;border-radius:8px;background:#000;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font:700 11px var(--mono);overflow:hidden;text-align:center;line-height:1.1;padding:2px}
+.fav .thumb canvas{width:100%;height:100%}
+.fav .name{font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fav .sub{font-size:12px;color:var(--muted)}
+.fav .acts{display:flex;gap:6px}
+.fav .acts button{flex:1;padding:7px 6px;font-size:13px}
+.fav .acts button.x{flex:0 0 auto}
+.pl{display:flex;flex-direction:column;gap:6px}
+.pl .it{display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:6px 8px}
+.pl .it .thumb{width:32px;height:32px;border-radius:6px;background:#000;flex:0 0 auto}
+.pl .it .thumb canvas{width:100%;height:100%}
+.pl .it .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
+.pl .it.now{border-color:var(--accent)}
+.empty{color:var(--muted);font-size:14px;padding:6px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Mojipic <span>Controller</span></h1>
+    <div id="status" class="pill"><i class="dot"></i><span id="statusText">Not connected</span></div>
+    <div class="grow"></div>
+    <button id="btnConnectAll" class="ghost" title="Use if your display doesn't appear in the list">Show all devices</button>
+    <button id="btnConnect" class="primary">Connect</button>
+    <button id="btnDisconnect" class="ghost" hidden>Disconnect</button>
+  </header>
+
+  <div id="noBt" class="banner hide">
+    This browser can't use Bluetooth. On iPhone use the free <b>Bluefy</b> browser; elsewhere use <b>Chrome</b> or <b>Edge</b>.
+    The page must be opened over <b>https://</b> (or as a local file on desktop).
+  </div>
+  <div id="runner" class="runner"><i class="dot" style="background:var(--accent);animation:pulse 1s infinite"></i><span id="runnerText" class="grow"></span><button id="runnerStop" class="sm">Stop</button></div>
+
+  <nav class="tabs" id="tabs">
+    <button data-tab="favs" class="active">★ Favourites</button>
+    <button data-tab="display">Display</button>
+    <button data-tab="image">Image / GIF</button>
+    <button data-tab="draw">Draw</button>
+    <button data-tab="text">Text</button>
+    <button data-tab="emoji">Emoji</button>
+    <button data-tab="live">Clock &amp; Playlist</button>
+    <button data-tab="library">Library</button>
+    <button data-tab="settings">Settings</button>
+  </nav>
+
+  <!-- FAVOURITES -->
+  <section class="tab active" id="tab-favs">
+    <div class="card">
+      <h2>Favourites</h2>
+      <div class="favs" id="favList"></div>
+      <p class="hint">Save things here with the ★ buttons on the other tabs. Pictures remember their slot: <b>Show</b> is instant if the picture is still on the display, <b>Upload</b> puts it back if it isn't.</p>
+    </div>
+  </section>
+
+  <!-- DISPLAY -->
+  <section class="tab" id="tab-display">
+    <div class="card">
+      <h2>Power</h2>
+      <div class="row">
+        <button data-cmd="deviceOn">Device on</button>
+        <button data-cmd="deviceOff">Device off</button>
+        <button data-cmd="screenOn">Screen on</button>
+        <button data-cmd="screenOff">Screen off</button>
+        <button data-cmd="clear">Clear screen</button>
+        <button data-cmd="last">Show last picture</button>
+      </div>
+      <p class="hint" id="battery">Battery: –</p>
+    </div>
+    <div class="card">
+      <h2>Brightness <span class="kv" id="brVal">50</span></h2>
+      <input type="range" id="brightness" min="1" max="100" value="50">
+      <div class="row"><button class="sm" data-br="10">Night</button><button class="sm" data-br="50">Normal</button><button class="sm" data-br="100">Max (daylight)</button></div>
+    </div>
+    <div class="card">
+      <h2>Screen mode</h2>
+      <div class="row">
+        <button id="modeConst">Constant</button>
+        <button id="modeSlide">Slideshow</button>
+        <button id="modeTimed">Timed</button>
+        <label class="i">every <input type="number" id="modeSecs" min="1" max="255" value="5" style="width:72px"> s</label>
+      </div>
+      <p class="hint">Slideshow cycles through every picture stored on the display. For your own selection, use the Playlist.</p>
+    </div>
+    <div class="card">
+      <h2>Show stored picture by id</h2>
+      <div class="row">
+        <input type="number" id="showId" min="0" max="4095" value="3000" style="width:110px">
+        <select id="showType">
+          <option value="2">still (colour)</option><option value="3">animated (colour)</option>
+          <option value="0">still (1-bit)</option><option value="1">animated (1-bit)</option>
+        </select>
+        <button id="btnShowId">Show</button>
+        <button id="btnEraseId" class="danger">Erase this id</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- IMAGE -->
+  <section class="tab" id="tab-image">
+    <div class="card">
+      <h2>Upload an image or GIF</h2>
+      <div class="split">
+        <canvas id="imgPreview" class="led" width="256" height="256"></canvas>
+        <div>
+          <div class="row">
+            <label class="btn" for="imgFile">Choose file…</label>
+            <input type="file" id="imgFile" accept="image/*">
+            <span class="muted" id="imgInfo">PNG, JPG, GIF, WebP</span>
+          </div>
+          <div class="row">
+            <label class="f">Fit
+              <select id="imgFit"><option value="contain">Fit (letterbox)</option><option value="cover">Fill (crop)</option><option value="stretch">Stretch</option></select>
+            </label>
+            <label class="f">Slot id <input type="number" id="imgSlot" min="2000" max="4095" value="3000" style="width:100px"></label>
+          </div>
+          <div class="row">
+            <button class="sm" id="imgRot">↻ Rotate</button>
+            <button class="sm" id="imgFlip">⇋ Flip</button>
+            <label class="i" style="flex:1;min-width:160px">Brightness <input type="range" id="imgBright" min="-100" max="100" value="0"></label>
+            <label class="i" style="flex:1;min-width:160px">Colour <input type="range" id="imgSat" min="0" max="200" value="100"></label>
+          </div>
+          <div class="row">
+            <button id="btnUploadImg" class="primary" disabled>Send to display</button>
+            <button id="imgFav" disabled>★ Favourite</button>
+            <button id="imgToDraw" disabled>Edit in Draw</button>
+          </div>
+          <div class="row"><div class="progress grow"><i id="imgProg"></i></div><span class="kv" id="imgProgTxt"></span></div>
+          <p class="hint">GIFs: up to 20 frames (longer ones are sampled). Slots 2000–4095 are free; built-ins use 1–1997.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DRAW -->
+  <section class="tab" id="tab-draw">
+    <div class="card">
+      <h2>Draw &amp; animate</h2>
+      <div class="split">
+        <div>
+          <canvas id="drawCanvas" class="led" width="320" height="320"></canvas>
+          <div class="frames" id="frameStrip"></div>
+          <div class="row">
+            <button class="sm" id="frAdd" title="New blank frame">+ Frame</button>
+            <button class="sm" id="frDup" title="Duplicate this frame">Duplicate</button>
+            <button class="sm danger" id="frDel">Delete</button>
+            <button class="sm" id="frPlay">▶ Play</button>
+            <label class="toggle"><input type="checkbox" id="onion"> Onion skin</label>
+          </div>
+        </div>
+        <div>
+          <div class="tools" id="tools">
+            <button class="sel" data-tool="pen" title="Pen">✏️</button>
+            <button data-tool="eraser" title="Eraser">🧽</button>
+            <button data-tool="fill" title="Fill">🪣</button>
+            <button data-tool="picker" title="Pick colour">💧</button>
+            <button data-tool="line" title="Line">╱</button>
+            <button data-tool="rect" title="Rectangle">▭</button>
+            <button id="undo" title="Undo">↶</button>
+            <button id="redo" title="Redo">↷</button>
+          </div>
+          <div class="row"><div class="swatches" id="drawSwatches"></div></div>
+          <div class="row">
+            <label class="i">Colour <input type="color" id="drawColor" value="#ffb020"></label>
+            <label class="i">Brush <select id="drawBrush"><option value="1">1 px</option><option value="2">2 px</option><option value="3">3 px</option></select></label>
+            <label class="toggle"><input type="checkbox" id="mirror"> Mirror</label>
+          </div>
+          <div class="row">
+            <input type="text" id="stampText" placeholder="Text stamp (A–Z 0–9)" maxlength="16" style="flex:1;min-width:120px">
+            <button class="sm" id="stampBtn">Stamp</button>
+          </div>
+          <div class="row">
+            <label class="toggle"><input type="checkbox" id="drawLive"> Live on display</label>
+          </div>
+          <div class="row">
+            <button id="drawClear">Clear frame</button>
+            <label class="i">Slot <input type="number" id="drawSlot" min="2000" max="4095" value="3100" style="width:90px"></label>
+          </div>
+          <div class="row">
+            <button id="drawSave" class="primary">Save to display</button>
+            <button id="drawFav">★ Favourite</button>
+          </div>
+          <div class="row"><div class="progress grow"><i id="drawProg"></i></div></div>
+          <p class="hint">Text stamp: type, press Stamp, then tap where it goes. Live mode only shows the 8 basic colours (the device's limit for live pixels); "Save" stores full colour and all frames.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TEXT -->
+  <section class="tab" id="tab-text">
+    <div class="card">
+      <h2>Scrolling text</h2>
+      <div class="row"><input type="text" id="tkText" maxlength="255" placeholder="Type a message…" style="flex:1" value="Hello!"></div>
+      <div class="row"><span class="muted">Colour</span><div class="swatches" id="tkSwatches"></div></div>
+      <div class="row">
+        <span class="muted">Size</span>
+        <div class="seg"><button class="tkSize" data-size="0">S</button><button class="tkSize sel" data-size="1">M</button><button class="tkSize" data-size="2">L</button></div>
+      </div>
+      <div class="row" style="align-items:center"><span class="muted">Speed</span><input type="range" id="tkSpeed" min="0" max="100" value="60" style="flex:1"></div>
+      <div class="row">
+        <button id="btnTicker" class="primary">Scroll on display</button>
+        <button id="tkFav">★ Save as favourite</button>
+        <button data-cmd="clear">Stop / clear</button>
+      </div>
+      <p class="hint" id="tkWarn">Supports A–Z, digits, common punctuation, accented Latin and Cyrillic.</p>
+    </div>
+  </section>
+
+  <!-- EMOJI -->
+  <section class="tab" id="tab-emoji">
+    <div class="card">
+      <h2>Emoji maker</h2>
+      <div class="split">
+        <canvas id="emPreview" class="led" width="256" height="256"></canvas>
+        <div>
+          <div class="row"><input type="text" id="emText" value="😎" placeholder="Paste or type an emoji" style="flex:1;font-size:22px"></div>
+          <div class="row" id="emQuick"></div>
+          <div class="row">
+            <label class="i" style="flex:1;min-width:160px">Size <input type="range" id="emScale" min="60" max="130" value="100"></label>
+            <label class="i">Background <input type="color" id="emBg" value="#000000"></label>
+          </div>
+          <div class="row">
+            <label class="i">Slot <input type="number" id="emSlot" min="2000" max="4095" value="3500" style="width:90px"></label>
+            <button id="emSend" class="primary">Send to display</button>
+            <button id="emFav">★ Favourite</button>
+            <button id="emToDraw">Edit in Draw</button>
+          </div>
+          <div class="row"><div class="progress grow"><i id="emProg"></i></div></div>
+          <p class="hint">Uses your phone's own emoji font, so any emoji works, as do short words or symbols like ♥ ★ ☺.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- LIVE -->
+  <section class="tab" id="tab-live">
+    <div class="card">
+      <h2>Clock</h2>
+      <div class="split">
+        <canvas id="clockPreview" class="led" width="192" height="192"></canvas>
+        <div>
+          <div class="row"><span class="muted">Colour</span><div class="swatches" id="clkSwatches"></div></div>
+          <div class="row">
+            <label class="toggle"><input type="checkbox" id="clk24" checked> 24-hour</label>
+            <label class="toggle"><input type="checkbox" id="clkDate" checked> Show day &amp; date</label>
+            <label class="toggle"><input type="checkbox" id="clkSec" checked> Seconds bar</label>
+          </div>
+          <div class="row"><button id="clkStart" class="primary">Start clock</button></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Countdown timer</h2>
+      <div class="row">
+        <label class="i"><input type="number" id="cdMin" min="0" max="99" value="5" style="width:70px"> min</label>
+        <label class="i"><input type="number" id="cdSec" min="0" max="59" value="0" style="width:70px"> s</label>
+        <div class="swatches" id="cdSwatches"></div>
+        <button id="cdStart" class="primary">Start countdown</button>
+      </div>
+      <p class="hint">The clock and countdown draw straight to the display (no memory writes) and run while this page stays open.</p>
+    </div>
+    <div class="card">
+      <h2>Playlist</h2>
+      <div class="pl" id="plList"></div>
+      <div class="row">
+        <select id="plAdd" style="flex:1;min-width:160px"></select>
+        <button id="plAddBtn" class="sm">Add</button>
+      </div>
+      <div class="row">
+        <label class="i">Each item <input type="number" id="plSecs" min="2" max="600" value="8" style="width:72px"> s</label>
+        <label class="toggle"><input type="checkbox" id="plShuffle"> Shuffle</label>
+        <button id="plPrep">Upload all pictures first</button>
+        <button id="plStart" class="primary">Play</button>
+      </div>
+      <div class="row"><div class="progress grow"><i id="plProg"></i></div></div>
+      <p class="hint">Mixes your favourite pictures and messages in any order. Runs while this page is open.</p>
+    </div>
+  </section>
+
+  <!-- LIBRARY -->
+  <section class="tab" id="tab-library">
+    <div class="card">
+      <h2>Built-in library</h2>
+      <div class="row">
+        <label class="btn" for="apkFile">Load from Mojipic APK…</label>
+        <input type="file" id="apkFile" accept=".apk,.zip,application/vnd.android.package-archive">
+        <button id="btnScan" disabled>Scan what's on the display</button>
+      </div>
+      <p class="hint" id="libInfo">Reads the ~1,900 emojis and GIFs straight from your copy of the app, in this browser.</p>
+      <div class="row"><div class="progress grow"><i id="libProg"></i></div></div>
+      <div class="row" id="libControls" hidden>
+        <input type="search" id="libSearch" placeholder="Search…" style="flex:1;min-width:140px">
+        <select id="libCat"></select>
+        <label class="toggle"><input type="checkbox" id="libOnlyDev"> Only on display</label>
+      </div>
+    </div>
+    <div class="card" id="libDetail" hidden>
+      <div class="split">
+        <canvas id="libPreview" class="led" width="192" height="192"></canvas>
+        <div>
+          <div style="font-weight:600" id="libName"></div>
+          <div class="kv" id="libMeta"></div>
+          <div class="row">
+            <button id="libShow" class="primary">Show on display</button>
+            <button id="libUpload">Re-upload</button>
+            <button id="libFav">★ Favourite</button>
+          </div>
+          <div class="row"><div class="progress grow"><i id="libUpProg"></i></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="card"><div class="grid lib-grid" id="libGrid"><span class="muted">No library loaded.</span></div></div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section class="tab" id="tab-settings">
+    <div class="card">
+      <h2>Appearance</h2>
+      <div class="seg" id="themeSeg"><button data-theme="auto">Auto</button><button data-theme="dark">Dark</button><button data-theme="light">Light</button></div>
+    </div>
+    <div class="card">
+      <h2>Display auto-off</h2>
+      <div class="row">
+        <label class="i">Turn off <input type="number" id="autoOff" min="0" max="180" value="0" style="width:80px"> s after your phone disconnects</label>
+        <button id="autoOffSet">Set</button>
+      </div>
+      <p class="hint">1–180 seconds. 0 = stay on.</p>
+    </div>
+    <div class="card">
+      <h2>Connection</h2>
+      <label class="toggle"><input type="checkbox" id="autoRe" checked> Reconnect automatically if the connection drops</label>
+    </div>
+    <div class="card">
+      <h2>Backup</h2>
+      <div class="row">
+        <button id="bkExport">Export favourites &amp; settings</button>
+        <label class="btn" for="bkImport">Import backup…</label>
+        <input type="file" id="bkImport" accept="application/json,.json">
+      </div>
+      <p class="hint">Favourites are saved in this browser. Export them to move to another phone or keep a copy.</p>
+    </div>
+    <div class="card">
+      <h2>Bluetooth log</h2>
+      <div class="row"><label class="toggle"><input type="checkbox" id="logVerbose"> Log every packet</label><button id="logClear" class="ghost sm">Clear</button></div>
+      <div id="log"></div>
+    </div>
+  </section>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   Mojipic BLE protocol: reverse-engineered from app v4.8.0
+   ============================================================ */
+const UUID = {
+  WRITE_IMAGE:'FFF1', STATUS:'FFF2', SHOW:'FFF3', COUNT:'FFF4', IDS:'FFF5', CTRL:'FFF6', ERASE:'FFF7',
+  TIMEOUT:'FFF8', BRIGHT:'FFF9', REALTIME:'FFFB', TETRIS:'FFFC', PROC_ID:'FFFD',
+  TICKER:'FFE0', BLE_POWER:'FFE1', AUTH:'FFE2', BATTERY:'2A19', FIRMWARE:'2A26'
+};
+const SERVICES = [0xfff0, 0xffe0, 0x180f, 0x180a];
+const CMD = { deviceOn:[2,1], deviceOff:[2,2], screenOn:[2,6,5], screenOff:[2,5], clear:[7,1], last:[7,0] };
+const STATUS_BITS = {1:'WRITE_BLOCK_SUCCESS',2:'WRITE_BLOCK_ERROR',4:'FLASH_READY',8:'FLASH_NOT_READY',16:'SLAVE_MCU_READY',32:'IMAGE_ID_READY',64:'WRITE_IMAGE_SUCCESS',128:'SLAVE_MCU_ON'};
+// Character -> device font code, extracted by running the app's TickerCalculator.
+const TICKER_MAP = {"33":95,"34":111,"35":98,"36":99,"37":100,"38":101,"39":107,"40":118,"41":119,"42":102,"43":105,"44":94,"45":103,"46":93,"47":104,"48":134,"49":125,"50":126,"51":127,"52":128,"53":129,"54":130,"55":131,"56":132,"57":133,"58":120,"59":110,"60":121,"61":106,"62":122,"63":96,"64":97,"65":1,"66":11,"67":13,"68":15,"69":17,"70":27,"71":29,"72":31,"73":33,"74":41,"75":43,"76":45,"77":47,"78":49,"79":53,"80":63,"81":65,"82":67,"83":69,"84":71,"85":73,"86":83,"87":85,"88":87,"89":89,"90":91,"91":116,"93":117,"94":109,"96":124,"97":2,"98":12,"99":14,"100":16,"101":18,"102":28,"103":30,"104":32,"105":34,"106":42,"107":44,"108":46,"109":48,"110":50,"111":54,"112":64,"113":66,"114":68,"115":70,"116":72,"117":74,"118":84,"119":86,"120":88,"121":90,"122":92,"123":114,"125":115,"126":123,"151":208,"161":211,"171":112,"187":113,"191":210,"192":5,"193":3,"194":7,"195":214,"196":9,"197":219,"198":222,"199":201,"200":21,"201":19,"202":25,"203":23,"204":282,"205":35,"206":37,"207":39,"208":241,"209":51,"210":57,"211":55,"212":59,"213":252,"214":61,"216":223,"217":79,"218":75,"219":81,"220":77,"223":216,"224":6,"225":4,"226":8,"227":214,"228":10,"229":218,"230":220,"231":202,"232":22,"233":20,"234":26,"235":24,"236":217,"237":36,"238":38,"239":40,"241":52,"242":58,"243":56,"244":60,"245":215,"246":62,"248":221,"249":80,"250":76,"251":82,"252":78,"253":238,"256":259,"257":267,"258":286,"259":284,"260":271,"261":227,"263":229,"266":280,"267":277,"268":248,"269":235,"273":240,"274":254,"275":262,"278":273,"279":268,"280":272,"281":232,"283":233,"286":203,"287":204,"288":281,"289":278,"290":256,"291":264,"294":283,"295":279,"298":258,"299":266,"302":274,"303":269,"310":255,"311":263,"315":260,"316":253,"318":249,"321":231,"322":226,"324":228,"325":257,"326":265,"328":251,"336":244,"337":242,"338":209,"339":209,"345":236,"347":225,"350":207,"352":246,"353":234,"354":287,"355":285,"357":250,"362":276,"363":261,"367":239,"368":245,"369":243,"370":275,"371":270,"378":230,"379":224,"380":224,"381":247,"382":237,"867":213,"870":212,"1025":147,"1030":205,"1040":135,"1041":137,"1042":139,"1043":141,"1044":143,"1045":145,"1046":149,"1047":151,"1048":153,"1049":155,"1050":157,"1051":159,"1052":161,"1053":163,"1054":165,"1055":167,"1056":169,"1057":171,"1058":173,"1059":175,"1060":177,"1061":179,"1062":181,"1063":183,"1064":185,"1065":187,"1066":189,"1067":191,"1068":193,"1069":195,"1070":197,"1071":199,"1072":136,"1073":138,"1074":140,"1075":142,"1076":144,"1077":146,"1078":150,"1079":152,"1080":154,"1081":156,"1082":158,"1083":160,"1084":162,"1085":164,"1086":166,"1087":168,"1088":170,"1089":172,"1090":174,"1091":176,"1092":178,"1093":180,"1094":182,"1095":184,"1096":186,"1097":188,"1098":190,"1099":192,"1100":194,"1101":196,"1102":198,"1103":200,"1105":148,"1110":206,"8470":108};
+// The 8 colours the device understands for text and live drawing (ticker colour index = array index).
+const BASIC = [
+  {name:'Black',hex:'#000000'},{name:'White',hex:'#ffffff'},{name:'Red',hex:'#ff0000'},{name:'Green',hex:'#00ff00'},
+  {name:'Blue',hex:'#0000ff'},{name:'Yellow',hex:'#ffff00'},{name:'Pink',hex:'#ff00ff'},{name:'Sky',hex:'#00ffff'}
+];
+
+/* ---------- pure encoders (no Bluetooth) ---------- */
+const Enc = {
+  hex(b){ return Array.from(b, x => x.toString(16).padStart(2,'0')).join(' '); },
+  authPayload(sn, rnd = crypto.getRandomValues(new Uint8Array(20))){
+    const o = Uint8Array.from(rnd);
+    o[5]=sn[3]; o[11]=sn[7]; o[14]=sn[4]; o[18]=sn[9]; o[7]=sn[10]; o[8]=sn[1];
+    return o;
+  },
+  authValid(h, sn){
+    if (sn.length < 12 || h.length < 18) return false;
+    return h[2]===sn[11] && h[6]===sn[1] && h[7]===sn[5] && h[13]===sn[1] && h[16]===sn[8] && h[17]===sn[3];
+  },
+  deviceId(type, id){ return ((type & 15) << 12) | (id & 4095); },
+  idLE(id){ return [id & 255, (id >> 8) & 255]; },
+  // frames: array of RGBA 32*32*4. mono=true -> 1-bit (type 0/1), else 5-bit.
+  pixelData(frames, mono){
+    const out = new Uint8Array(frames.length * 3072);
+    frames.forEach((px, f) => {
+      for (let i = 0; i < 1024; i++){
+        const r = px[i*4], g = px[i*4+1], b = px[i*4+2], o = f*3072 + i*3;
+        if (mono){ out[o] = r>127?31:0; out[o+1] = g>127?31:0; out[o+2] = b>127?31:0; }
+        else { out[o] = r>>3; out[o+1] = g>>3; out[o+2] = b>>3; }
+      }
+    });
+    return out;
+  },
+  // device bytes -> RGBA frames (for previews)
+  toRGBA(data){
+    const frames = [];
+    for (let f = 0; f < data.length / 3072; f++){
+      const px = new Uint8ClampedArray(4096);
+      for (let i = 0; i < 1024; i++){ const o = f*3072 + i*3;
+        px[i*4] = (data[o]<<3)|(data[o]>>2); px[i*4+1] = (data[o+1]<<3)|(data[o+1]>>2); px[i*4+2] = (data[o+2]<<3)|(data[o+2]>>2); px[i*4+3] = 255; }
+      frames.push(px);
+    }
+    return frames;
+  },
+  imagePacket(devId, data, frame, index){
+    const p = new Uint8Array(20);
+    p[0] = (devId >> 8) & 255; p[1] = devId & 255; p[2] = index; p[3] = frame;
+    for (let k = 0; k < 16; k++){ const o = frame*3072 + index*16 + k; if (o < data.length) p[4+k] = data[o]; }
+    return p;
+  },
+  tickerCodes(text){ return Array.from(text).map(ch => TICKER_MAP[ch.codePointAt(0)] || 0); },
+  unsupported(text){ return [...new Set(Array.from(text).filter(ch => ch !== ' ' && !TICKER_MAP[ch.codePointAt(0)]))]; },
+  tickerPackets(codes, sizeIdx, colorIdx, delay){
+    const n = codes.length, pk = [];
+    for (let k = 0; k <= Math.floor(n/8); k++){
+      const p = new Uint8Array(20);
+      p[0] = n & 255; p[1] = 0; p[2] = delay & 255; p[3] = ((sizeIdx << 3) | colorIdx) & 255;
+      for (let j = 0; j < 8; j++){
+        const c = codes[k*8 + j] || 0;
+        p[4 + j*2] = c > 255 ? (c >> 8) & 255 : 0;
+        p[5 + j*2] = c & 255;
+      }
+      pk.push(p);
+    }
+    return pk;
+  },
+  speedToDelay(pct){ return Math.round(60 - pct * 57 / 100); },
+  q(v){ return v > 127 ? 31 : 0; },
+  realtimePacket(rgb, pts){
+    const p = new Uint8Array(18).fill(255);
+    // Device takes 0 or 31 per channel. (The app thresholds at >16; a mid-point maps colours more faithfully.)
+    p[0] = Enc.q(rgb[0]); p[1] = Enc.q(rgb[1]); p[2] = Enc.q(rgb[2]);
+    pts.slice(0,7).forEach(([x,y], i) => { p[3+i*2] = x; p[4+i*2] = y; });
+    return p;
+  },
+  b64(u8){ let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); },
+  unb64(s){ return Uint8Array.from(atob(s), c => c.charCodeAt(0)); }
+};
+window.MojipicEnc = Enc;
+
+/* ---------- pixel fonts ---------- */
+const F3 = { // 3x5
+  '0':'111101101101111','1':'010110010010111','2':'111001111100111','3':'111001111001111','4':'101101111001001',
+  '5':'111100111001111','6':'111100111101111','7':'111001001010010','8':'111101111101111','9':'111101111001111',
+  'A':'010101111101101','B':'110101110101110','C':'011100100100011','D':'110101101101110','E':'111100110100111',
+  'F':'111100110100100','G':'011100101101011','H':'101101111101101','I':'111010010010111','J':'001001001101010',
+  'K':'101101110101101','L':'100100100100111','M':'101111111101101','N':'110101101101101','O':'010101101101010',
+  'P':'110101110100100','Q':'010101101110011','R':'110101110101101','S':'011100010001110','T':'111010010010010',
+  'U':'101101101101111','V':'101101101101010','W':'101101111111101','X':'101101010101101','Y':'101101010010010',
+  'Z':'111001010100111',' ':'000000000000000',':':'000010000010000','.':'000000000000010','!':'010010010000010',
+  '?':'110001010000010','-':'000000111000000','+':'000010111010000','/':'001001010100100',"'":'010010000000000',
+  ',':'000000000010100','=':'000111000111000','#':'101111101111101','%':'101001010100101','<':'001010100010001','>':'100010001010100'
+};
+const F5 = { // 5x7 digits
+  '0':'01110100011001110101110011000101110','1':'00100011000010000100001000010001110','2':'01110100010000100010001000100011111',
+  '3':'11111000100010000010000011000101110','4':'00010001100101010010111110001000010','5':'11111100001111000001000011000101110',
+  '6':'00110010001000011110100011000101110','7':'11111000010001000100010000100001000','8':'01110100011000101110100011000101110',
+  '9':'01110100011000101111000010001001100'
+};
+function glyph(font, ch, w, h){ const g = font[ch]; return g ? (x, y) => g[y*w + x] === '1' : null; }
+// draw text into RGBA buffer with 3x5 font; returns width
+function textWidth3(s){ return Math.max(0, s.length * 4 - 1); }
+function putText3(px, s, x0, y0, rgb){
+  let x = x0;
+  for (const ch of s.toUpperCase()){
+    const g = glyph(F3, ch, 3, 5) || glyph(F3, '?', 3, 5);
+    for (let y = 0; y < 5; y++) for (let dx = 0; dx < 3; dx++) if (g(dx, y)) setPx(px, x+dx, y0+y, rgb);
+    x += 4;
+  }
+}
+function putDigit5(px, d, x0, y0, rgb){ const g = glyph(F5, d, 5, 7); if (!g) return; for (let y = 0; y < 7; y++) for (let x = 0; x < 5; x++) if (g(x, y)) setPx(px, x0+x, y0+y, rgb); }
+function setPx(px, x, y, rgb){ if (x < 0 || y < 0 || x > 31 || y > 31) return; const i = (y*32+x)*4; px[i] = rgb[0]; px[i+1] = rgb[1]; px[i+2] = rgb[2]; px[i+3] = 255; }
+const blank = () => new Uint8ClampedArray(4096);
+
+/* ---------- logging ---------- */
+const logEl = document.getElementById('log');
+const verbose = () => document.getElementById('logVerbose').checked;
+function log(msg, always = true){
+  if (!always && !verbose()) return;
+  logEl.textContent += `[${new Date().toLocaleTimeString()}] ${msg}\n`;
+  if (logEl.textContent.length > 60000) logEl.textContent = logEl.textContent.slice(-40000);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+document.getElementById('logClear').onclick = () => logEl.textContent = '';
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* ---------- device ---------- */
+const Dev = {
+  device:null, server:null, chars:{}, connected:false, queue:Promise.resolve(), userDisconnect:false, reconnecting:false,
+  status:0, statusFresh:false, statusWaiters:[], idWaiters:[], onReady:[],
+  op(fn){ const p = this.queue.then(fn, fn); this.queue = p.catch(() => {}); return p; },
+  has(k){ return !!this.chars[UUID[k]]; },
+  c(k){ const c = this.chars[UUID[k]]; if (!c) throw new Error(`Characteristic ${UUID[k]} (${k}) not found`); return c; },
+  async write(k, bytes, noResp = false){
+    if (!this.connected && k !== 'AUTH' && k !== 'CTRL') throw new Error('Not connected');
+    const c = this.c(k), data = bytes instanceof Uint8Array ? bytes : Uint8Array.from(bytes);
+    log(`→ ${UUID[k]} ${Enc.hex(data)}`, false);
+    return this.op(async () => {
+      const pr = c.properties;
+      if ((noResp || !pr.write) && pr.writeWithoutResponse && c.writeValueWithoutResponse) return c.writeValueWithoutResponse(data);
+      if (c.writeValueWithResponse) return c.writeValueWithResponse(data);
+      return c.writeValue(data);
+    });
+  },
+  async read(k){
+    const c = this.c(k);
+    const v = await this.op(() => c.readValue());
+    const b = new Uint8Array(v.buffer, v.byteOffset, v.byteLength).slice();
+    log(`← ${UUID[k]} ${Enc.hex(b)}`, false);
+    return b;
+  },
+  async notify(k, handler){
+    const c = this.c(k);
+    c.addEventListener('characteristicvaluechanged', e => {
+      const v = e.target.value; handler(new Uint8Array(v.buffer, v.byteOffset, v.byteLength).slice());
+    });
+    await this.op(() => c.startNotifications());
+  },
+  onStatus(b){
+    this.status = b[0]; this.statusFresh = true;
+    log(`status 0x${b[0].toString(16).padStart(2,'0')} ${Object.entries(STATUS_BITS).filter(([m])=>b[0]&m).map(([,n])=>n).join('|')}`, false);
+    const w = this.statusWaiters; this.statusWaiters = []; w.forEach(f => f());
+  },
+  waitStatus(pred, ms){
+    return new Promise((res, rej) => {
+      let done = false, t = null;
+      const finish = (fn, v) => { if (done) return; done = true; clearTimeout(t); this.statusWaiters = this.statusWaiters.filter(f => f !== check); fn(v); };
+      const check = () => {
+        if (done) return;
+        if (this.statusFresh && pred(this.status)) { this.statusFresh = false; finish(res, this.status); }
+        else if (!this.statusWaiters.includes(check)) this.statusWaiters.push(check);
+      };
+      t = setTimeout(() => finish(rej, new Error('Timed out waiting for the display')), ms);
+      check();
+    });
+  },
+
+  async connect(all = false){
+    if (!navigator.bluetooth) throw new Error('Web Bluetooth is not available in this browser');
+    setStatus('busy', 'Choose your Mojipic…');
+    this.device = await navigator.bluetooth.requestDevice(all
+      ? {acceptAllDevices:true, optionalServices:SERVICES}
+      : {filters:[{namePrefix:'Mojipic'},{services:[0xfff0]}], optionalServices:SERVICES});
+    this.device.addEventListener('gattserverdisconnected', () => this.onDisconnected());
+    this.userDisconnect = false;
+    await this.setup();
+  },
+  async setup(){
+    setStatus('busy', 'Connecting…');
+    log(`Connecting to "${this.device.name || 'unnamed'}"`);
+    this.server = await this.device.gatt.connect();
+    this.chars = {}; this.queue = Promise.resolve(); this.statusWaiters = []; this.idWaiters = [];
+    const services = await this.server.getPrimaryServices();
+    for (const s of services){
+      let cs = [];
+      try { cs = await s.getCharacteristics(); } catch(e){ log(`service ${s.uuid}: ${e.message}`); }
+      for (const c of cs) this.chars[c.uuid.substring(4,8).toUpperCase()] = c;
+      log(`service ${s.uuid.substring(4,8).toUpperCase()}: ${cs.map(c => c.uuid.substring(4,8).toUpperCase()).join(' ')}`);
+    }
+    for (const k of ['WRITE_IMAGE','STATUS','SHOW','CTRL','PROC_ID','AUTH'])
+      if (!this.has(k)) throw new Error(`This doesn't look like a Mojipic (missing ${UUID[k]})`);
+    await this.notify('STATUS', b => this.onStatus(b));
+    if (this.has('IDS')) { try { await this.notify('IDS', () => { const w = this.idWaiters; this.idWaiters = []; w.forEach(f => f()); }); } catch(e){ log('IDS notify: ' + e.message); } }
+
+    // Handshake (replaces the app's processor-id check)
+    setStatus('busy', 'Unlocking…');
+    const sn = await this.read('PROC_ID');
+    log(`processor id ${Enc.hex(sn)}`);
+    const reply = new Promise(res => {
+      this.c('AUTH').addEventListener('characteristicvaluechanged', function h(e){
+        e.target.removeEventListener('characteristicvaluechanged', h);
+        const v = e.target.value; res(new Uint8Array(v.buffer, v.byteOffset, v.byteLength).slice());
+      });
+    });
+    await this.op(() => this.c('AUTH').startNotifications());
+    await this.write('AUTH', Enc.authPayload(sn));
+    const h = await Promise.race([reply, sleep(4000).then(() => null)]);
+    if (!h) log('Handshake: no reply from display (continuing anyway)');
+    else log(`Handshake reply ${Enc.hex(h)}: ${Enc.authValid(h, sn) ? 'valid' : 'unexpected (continuing)'}`);
+
+    await this.write('CTRL', CMD.deviceOn);
+    await sleep(150);
+    await this.write('CTRL', [2,6,0]);
+    this.connected = true;
+    setStatus('on', `Connected · ${this.device.name || 'Mojipic'}`);
+    this.readBattery();
+    this.onReady.forEach(f => { try { f(); } catch(e){} });
+  },
+  async readBattery(){
+    if (!this.has('BATTERY')) return;
+    try { const b = await this.read('BATTERY'); document.getElementById('battery').textContent = `Battery: ${b[0]}%`; } catch(e){}
+  },
+  disconnect(){ this.userDisconnect = true; if (this.device?.gatt?.connected) this.device.gatt.disconnect(); else this.onDisconnected(); },
+  onDisconnected(){
+    const was = this.connected;
+    this.connected = false; this.chars = {}; this.queue = Promise.resolve();
+    const w = this.statusWaiters; this.statusWaiters = []; w.forEach(f => f());
+    log('Disconnected');
+    if (!this.userDisconnect && was && store.get('autoRe', true) && this.device) this.reconnect();
+    else setStatus('', 'Not connected');
+  },
+  async reconnect(){
+    if (this.reconnecting) return; this.reconnecting = true;
+    for (let i = 1; i <= 30 && !this.userDisconnect && !this.connected; i++){
+      setStatus('busy', `Reconnecting… (${i})`);
+      try { await this.setup(); break; }
+      catch(e){ log(`Reconnect ${i} failed: ${e.message}`); await sleep(Math.min(10000, 1500 * i)); }
+    }
+    this.reconnecting = false;
+    if (!this.connected) setStatus('', 'Not connected');
+  },
+
+  /* ----- features ----- */
+  cmd(name){ return this.write('CTRL', CMD[name]); },
+  brightness(v){ return this.write('BRIGHT', [Math.max(1, Math.min(100, v|0))]); },
+  autoOff(s){ return this.write('TIMEOUT', [Math.max(0, Math.min(180, s|0))]); },
+  screenMode(mode, secs){
+    const s = Math.max(1, Math.min(255, secs|0));
+    return this.write('CTRL', mode === 'slide' ? [7,2,s] : mode === 'timed' ? [2,6,s] : [2,6,0]);
+  },
+  show(devId){ return this.write('SHOW', Enc.idLE(devId), true); },
+  erase(devId){ return this.write('ERASE', Enc.idLE(devId)); },
+  async uploadImage(devId, data, onProgress){
+    const frames = data.length / 3072, total = frames * 192;
+    log(`Uploading id 0x${devId.toString(16)} (${frames} frame${frames>1?'s':''})`);
+    this.statusFresh = true; this.status = 1; // the app treats the first block as ready
+    let done = 0, misses = 0, blind = false;
+    for (let f = 0; f < frames; f++){
+      for (let i = 0; i < 192; i++){
+        if (!this.connected) throw new Error('Connection lost during upload');
+        if (!blind){
+          try { await this.waitStatus(s => (s & 1) || (s & 4), 3000); misses = 0; }
+          catch(e){
+            log(`No ready signal before frame ${f} block ${i}`);
+            if (++misses >= 3){ blind = true; log('Display is not sending status updates; switching to timed sending'); }
+          }
+        } else await sleep(45);
+        await this.write('WRITE_IMAGE', Enc.imagePacket(devId, data, f, i));
+        onProgress && onProgress(++done / total);
+      }
+    }
+    if (!blind) { try { await this.waitStatus(s => (s & 1) || (s & 4) || (s & 64), 2500); } catch(e){} }
+    await sleep(100);
+    await this.show(devId);
+    log('Upload complete');
+  },
+  async ticker(text, sizeIdx, colorIdx, delay){
+    const codes = Enc.tickerCodes(text).slice(0, 255);
+    for (const p of Enc.tickerPackets(codes, sizeIdx, colorIdx, delay)) await this.write('TICKER', p);
+  },
+  realtime(rgb, pts){ return this.write('REALTIME', Enc.realtimePacket(rgb, pts), true); },
+  async scanIds(onProgress){
+    const waitId = ms => new Promise(res => { const t = setTimeout(() => res(false), ms); this.idWaiters.push(() => { clearTimeout(t); res(true); }); });
+    let count = 0;
+    if (this.has('COUNT')) { try { const c = await this.read('COUNT'); count = c.length > 1 ? ((c[0] << 8) | c[1]) : c[0]; } catch(e){} }
+    log(`Display reports ${count} stored pictures`);
+    const limit = count > 0 && count < 4096 ? count : 2100, ids = [], seen = new Set();
+    let v = await this.read('IDS');
+    for (let i = 0; i < limit; i++){
+      if (v.length > 3){
+        const id = ((v[2] << 8) | v[3]) & 0xffff;
+        if (id === 0xffff) break;
+        if (!seen.has(id)) { seen.add(id); ids.push(id); }
+      }
+      onProgress && onProgress((i+1) / limit);
+      const w = waitId(1500);
+      await this.write('IDS', [0xA5]);
+      if (!(await w)) { log('ID scan: display stopped responding'); break; }
+      v = await this.read('IDS');
+    }
+    return ids;
+  }
+};
+window.MojipicDev = Dev;
+
+/* ---------- Live pixel engine: diff-based drawing with realtime packets ---------- */
+const Live = {
+  shown: blank(), // what we believe the display shows (quantised)
+  async reset(){ this.shown = blank(); await Dev.cmd('clear'); },
+  // push a full 32x32 RGBA image; sends only changed pixels, grouped by colour
+  async push(px){
+    const groups = new Map();
+    for (let i = 0; i < 1024; i++){
+      const o = i*4, q = [Enc.q(px[o]), Enc.q(px[o+1]), Enc.q(px[o+2])], s = this.shown;
+      if (Enc.q(s[o]) === q[0] && Enc.q(s[o+1]) === q[1] && Enc.q(s[o+2]) === q[2]) continue;
+      const key = q.join(','); if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push([i % 32, (i / 32) | 0]);
+      s[o] = q[0] ? 255 : 0; s[o+1] = q[1] ? 255 : 0; s[o+2] = q[2] ? 255 : 0;
+    }
+    for (const [key, pts] of groups){
+      const rgb = key.split(',').map(v => +v ? 255 : 0);
+      for (let i = 0; i < pts.length; i += 7) await Dev.realtime(rgb, pts.slice(i, i + 7));
+    }
+  }
+};
+
+/* ---------- Runner: one background activity at a time (clock, countdown, playlist) ---------- */
+const Runner = {
+  name:null, timer:null, tick:null,
+  start(name, label, tick, intervalMs){
+    this.stop(); this.name = name; this.tick = tick;
+    $('runner').classList.add('show'); $('runnerText').textContent = label;
+    const loop = async () => {
+      if (this.name !== name) return;
+      try { if (Dev.connected) await tick(); } catch(e){ log(`${name}: ${e.message}`); }
+      if (this.name === name) this.timer = setTimeout(loop, typeof intervalMs === 'function' ? intervalMs() : intervalMs);
+    };
+    loop();
+  },
+  label(t){ $('runnerText').textContent = t; },
+  stop(){ if (!this.name) return; const n = this.name; this.name = null; clearTimeout(this.timer); $('runner').classList.remove('show'); this.onStop && this.onStop(n); }
+};
+Dev.onReady.push(() => { if (Runner.name === 'clock' || Runner.name === 'countdown') Live.reset().catch(() => {}); });
+
+/* ---------- UI helpers ---------- */
+const $ = id => document.getElementById(id);
+function setStatus(cls, text){ const s = $('status'); s.className = 'pill ' + cls; $('statusText').textContent = text;
+  $('btnConnect').hidden = $('btnConnectAll').hidden = cls !== ''; $('btnDisconnect').hidden = cls === '';
+  $('btnScan').disabled = !(cls === 'on' && Lib.items.length); }
+// act(): run a device action; stops any background activity unless keep=true
+async function act(fn, keep = false){
+  if (!Dev.connected){ toast('Connect to your Mojipic first'); return; }
+  if (!keep) Runner.stop();
+  try { await fn(); } catch(e){ log('Error: ' + e.message); toast(e.message); }
+}
+let toastT;
+function toast(msg){
+  let t = $('toast'); if (!t){ t = document.createElement('div'); t.id = 'toast';
+    t.style.cssText = 'position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--toast);border:1px solid #333a46;color:#fff;padding:10px 16px;border-radius:12px;font-size:14px;z-index:9;max-width:90vw;box-shadow:0 8px 30px rgba(0,0,0,.35)';
+    document.body.appendChild(t); }
+  t.textContent = msg; t.style.display = 'block'; clearTimeout(toastT); toastT = setTimeout(() => t.style.display = 'none', 3200);
+}
+function prog(id, frac, txtId){ $(id).style.width = (frac*100).toFixed(1) + '%'; if (txtId) $(txtId).textContent = frac ? Math.round(frac*100) + '%' : ''; }
+function getInt(id, def){ const v = parseInt($(id).value, 10); return Number.isFinite(v) ? v : def; }
+const store = {
+  get(k, d){ try { const v = localStorage.getItem('mojipic.' + k); return v === null ? d : JSON.parse(v); } catch(e){ return d; } },
+  set(k, v){ try { localStorage.setItem('mojipic.' + k, JSON.stringify(v)); return true; } catch(e){ return false; } }
+};
+function slotCheck(slot){
+  if (slot < 1 || slot > 4095){ toast('Slot must be 1–4095'); return false; }
+  if (slot <= 1997 && !confirm(`Slot ${slot} is a built-in picture id. Overwrite it?`)) return false;
+  return true;
+}
+function bumpSlot(inputId, slot){ const n = Math.min(4095, slot + 1); store.set('nextSlot', n); ['imgSlot'].forEach(i => { if (i === inputId) $(i).value = n; }); }
+
+// LED renderer: RGBA 32x32 -> round dots on a black canvas
+function drawLED(canvas, rgba, grid = false, ghost = null){
+  const ctx = canvas.getContext('2d'), s = canvas.width / 32;
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++){
+    const i = (y*32 + x) * 4; let r = rgba ? rgba[i] : 0, g = rgba ? rgba[i+1] : 0, b = rgba ? rgba[i+2] : 0;
+    if (!(r|g|b) && ghost && (ghost[i]|ghost[i+1]|ghost[i+2])){ ctx.fillStyle = `rgba(${ghost[i]},${ghost[i+1]},${ghost[i+2]},.28)`; }
+    else ctx.fillStyle = (r|g|b) ? `rgb(${r},${g},${b})` : (grid ? '#16191e' : '#0d0f12');
+    ctx.beginPath(); ctx.arc(x*s + s/2, y*s + s/2, s*0.42, 0, Math.PI*2); ctx.fill();
+  }
+}
+function thumbCanvas(rgba, size = 32){ const c = document.createElement('canvas'); c.width = c.height = size; const x = c.getContext('2d'); const id = new ImageData(new Uint8ClampedArray(rgba), 32, 32);
+  const t = document.createElement('canvas'); t.width = t.height = 32; t.getContext('2d').putImageData(id, 0, 0); x.imageSmoothingEnabled = false; x.drawImage(t, 0, 0, size, size); return c; }
+function animate(canvas, frames){
+  clearTimeout(canvas._t);
+  if (!frames || !frames.length){ drawLED(canvas, null); return; }
+  let i = 0;
+  const step = () => { drawLED(canvas, frames[i]); if (frames.length > 1){ i = (i+1) % frames.length; canvas._t = setTimeout(step, 120); } };
+  step();
+}
+const work = document.createElement('canvas'); work.width = work.height = 32;
+const wctx = work.getContext('2d', {willReadFrequently:true});
+function to32(src, w, h, fit, opts = {}){
+  wctx.save(); wctx.setTransform(1,0,0,1,0,0);
+  wctx.fillStyle = opts.bg || '#000'; wctx.fillRect(0, 0, 32, 32);
+  wctx.imageSmoothingEnabled = true; wctx.imageSmoothingQuality = 'high';
+  const rot = ((opts.rot || 0) % 4 + 4) % 4, sw = rot % 2 ? h : w, sh = rot % 2 ? w : h;
+  let dw = 32, dh = 32;
+  if (fit !== 'stretch'){ const sc = fit === 'cover' ? Math.max(32/sw, 32/sh) : Math.min(32/sw, 32/sh); dw = sw*sc; dh = sh*sc; }
+  wctx.translate(16, 16); wctx.rotate(rot * Math.PI / 2); if (opts.flip) wctx.scale(-1, 1);
+  const fw = rot % 2 ? dh : dw, fh = rot % 2 ? dw : dh;
+  wctx.drawImage(src, -fw/2, -fh/2, fw, fh);
+  wctx.restore();
+  const d = wctx.getImageData(0, 0, 32, 32).data.slice();
+  const br = opts.bright || 0, sat = opts.sat == null ? 1 : opts.sat;
+  if (br || sat !== 1) for (let i = 0; i < d.length; i += 4){
+    let r = d[i], g = d[i+1], b = d[i+2]; const l = 0.299*r + 0.587*g + 0.114*b;
+    r = l + (r - l) * sat; g = l + (g - l) * sat; b = l + (b - l) * sat;
+    const k = br * 2.55; d[i] = r + k; d[i+1] = g + k; d[i+2] = b + k;
+  }
+  return d;
+}
+function hexToRgb(h){ const n = parseInt(h.slice(1), 16); return [(n>>16)&255, (n>>8)&255, n&255]; }
+function rgbToHex(r,g,b){ return '#' + [r,g,b].map(v => v.toString(16).padStart(2,'0')).join(''); }
+function buildSwatches(el, onPick, selIdx, skipBlack = false){
+  el.innerHTML = '';
+  BASIC.forEach((c, i) => {
+    if (skipBlack && i === 0) return;
+    const b = document.createElement('button'); b.className = 'sw' + (i === selIdx ? ' sel' : ''); b.title = c.name;
+    b.style.background = c.hex; b.onclick = () => { el.querySelectorAll('.sw').forEach(x => x.classList.remove('sel')); b.classList.add('sel'); onPick(i, c); };
+    el.appendChild(b);
+  });
+}
+
+/* ---------- Theme ---------- */
+function applyTheme(t){
+  if (t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t);
+  document.querySelectorAll('#themeSeg button').forEach(b => b.classList.toggle('sel', b.dataset.theme === t));
+  const dark = t === 'dark' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+  document.querySelector('meta[name=theme-color]').content = dark ? '#0b0d10' : '#f3f1ec';
+}
+$('themeSeg').onclick = e => { const b = e.target.closest('button'); if (!b) return; store.set('theme', b.dataset.theme); applyTheme(b.dataset.theme); };
+applyTheme(store.get('theme', 'auto'));
+
+/* ---------- header & tabs ---------- */
+if (!navigator.bluetooth) $('noBt').classList.remove('hide');
+async function doConnect(all){
+  try { await Dev.connect(all); }
+  catch(e){ log('Connect failed: ' + e.message); setStatus('', 'Not connected'); if (!/cancel/i.test(e.message)) toast(e.message);
+    if (Dev.device?.gatt?.connected){ Dev.userDisconnect = true; Dev.device.gatt.disconnect(); } }
+}
+$('btnConnect').onclick = () => doConnect(false);
+$('btnConnectAll').onclick = () => doConnect(true);
+$('btnDisconnect').onclick = () => { Runner.stop(); Dev.disconnect(); };
+$('runnerStop').onclick = () => Runner.stop();
+$('tabs').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('active', x === b));
+  document.querySelectorAll('section.tab').forEach(s => s.classList.toggle('active', s.id === 'tab-' + b.dataset.tab));
+  store.set('tab', b.dataset.tab);
+  if (b.dataset.tab === 'live'){ refreshPlAdd(); renderClock(); }
+};
+
+/* ---------- Favourites ---------- */
+const DEFAULT_FAVS = [
+  {id:'d1', kind:'text', name:'Thanks!', text:'Thanks!', color:3, size:1, speed:60},
+  {id:'d2', kind:'text', name:'Sorry!', text:'Sorry!', color:5, size:1, speed:60},
+  {id:'d3', kind:'text', name:'Hello!', text:'Hello!', color:7, size:1, speed:60},
+];
+let favs = store.get('favs', null) || DEFAULT_FAVS.slice();
+const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+function saveFavs(){ if (!store.set('favs', favs)) toast('Browser storage is full; export a backup and remove some favourites'); renderFavs(); refreshPlAdd(); }
+function addFav(f){ f.id = uid(); favs.unshift(f); saveFavs(); toast(`★ Saved "${f.name}"`); }
+function addImageFav(name, type, slot, data){ addFav({kind:'image', name, type, slot, data: Enc.b64(data)}); }
+function favThumb(f, size = 44){
+  if (f.kind === 'image') return thumbCanvas(Enc.toRGBA(Enc.unb64(f.data).subarray(0, 3072))[0], size);
+  const d = document.createElement('div'); d.textContent = f.text.slice(0, 10); d.style.color = BASIC[f.color]?.hex || '#fff'; if (f.color === 0) d.style.color = '#888'; return d;
+}
+async function playFav(f, keep = false){
+  if (f.kind === 'text') return Dev.ticker(f.text, f.size, f.color, Enc.speedToDelay(f.speed));
+  return Dev.show(Enc.deviceId(f.type, f.slot));
+}
+async function uploadFav(f, onProg){ await Dev.uploadImage(Enc.deviceId(f.type, f.slot), Enc.unb64(f.data), onProg); }
+function renderFavs(){
+  const el = $('favList'); el.innerHTML = '';
+  if (!favs.length){ el.innerHTML = '<div class="empty">No favourites yet.</div>'; return; }
+  favs.forEach((f, idx) => {
+    const card = document.createElement('div'); card.className = 'fav';
+    const top = document.createElement('div'); top.className = 'top';
+    const th = document.createElement('div'); th.className = 'thumb'; th.appendChild(favThumb(f)); top.appendChild(th);
+    const meta = document.createElement('div'); meta.style.minWidth = '0';
+    const nm = document.createElement('div'); nm.className = 'name'; nm.textContent = f.name; nm.title = 'Tap to rename';
+    nm.onclick = () => { const n = prompt('Name', f.name); if (n && n.trim()){ f.name = n.trim().slice(0, 40); saveFavs(); } };
+    const sub = document.createElement('div'); sub.className = 'sub';
+    sub.textContent = f.kind === 'text' ? 'Message' : `Picture · slot ${f.slot}${Enc.unb64(f.data).length > 3072 ? ' · GIF' : ''}`;
+    meta.append(nm, sub); top.appendChild(meta);
+    const acts = document.createElement('div'); acts.className = 'acts';
+    const play = document.createElement('button'); play.className = 'primary'; play.textContent = f.kind === 'text' ? '▶ Send' : '▶ Show';
+    play.onclick = () => act(() => playFav(f));
+    acts.appendChild(play);
+    if (f.kind === 'image'){
+      const up = document.createElement('button'); up.textContent = '⤒ Upload';
+      up.onclick = () => act(async () => { up.disabled = true; try { await uploadFav(f, p => up.textContent = Math.round(p*100) + '%'); toast(`${f.name} uploaded`); } finally { up.disabled = false; up.textContent = '⤒ Upload'; } });
+      acts.appendChild(up);
+    }
+    const x = document.createElement('button'); x.className = 'x danger'; x.textContent = '✕'; x.title = 'Remove';
+    x.onclick = () => { if (confirm(`Remove "${f.name}" from favourites?`)){ favs.splice(idx, 1); saveFavs(); } };
+    acts.appendChild(x);
+    card.append(top, acts); el.appendChild(card);
+  });
+}
+
+/* ---------- Display tab ---------- */
+document.querySelectorAll('[data-cmd]').forEach(b => b.onclick = () => act(() => Dev.cmd(b.dataset.cmd), b.dataset.cmd !== 'clear'));
+let brT;
+function setBright(v){ $('brightness').value = v; $('brVal').textContent = v; store.set('bright', +v); clearTimeout(brT); brT = setTimeout(() => act(() => Dev.brightness(+v), true), 150); }
+$('brightness').oninput = e => setBright(e.target.value);
+document.querySelectorAll('[data-br]').forEach(b => b.onclick = () => setBright(b.dataset.br));
+$('brightness').value = $('brVal').textContent = store.get('bright', 50);
+$('modeConst').onclick = () => act(() => Dev.screenMode('const'));
+$('modeSlide').onclick = () => act(() => Dev.screenMode('slide', getInt('modeSecs', 5)));
+$('modeTimed').onclick = () => act(() => Dev.screenMode('timed', getInt('modeSecs', 5)));
+$('btnShowId').onclick = () => act(() => Dev.show(Enc.deviceId(+$('showType').value, getInt('showId', 0))));
+$('btnEraseId').onclick = () => act(async () => {
+  const id = getInt('showId', 0), t = +$('showType').value;
+  if (!confirm(`Erase picture ${id} (type ${t}) from the display?`)) return;
+  await Dev.erase(Enc.deviceId(t, id)); toast('Erased');
+});
+
+/* ---------- GIF decoder (for iPhone/Safari, which lack ImageDecoder) ---------- */
+function decodeGif(buf){
+  const d = new Uint8Array(buf); let p = 0;
+  const u8 = () => d[p++], u16 = () => { const v = d[p] | (d[p+1] << 8); p += 2; return v; };
+  if (String.fromCharCode(d[0],d[1],d[2]) !== 'GIF') throw new Error('Not a GIF');
+  p = 6;
+  const W = u16(), H = u16(), flags = u8(); p += 2;
+  const readCT = n => { const t = []; for (let i = 0; i < n; i++) t.push([d[p++], d[p++], d[p++]]); return t; };
+  const gct = flags & 0x80 ? readCT(1 << ((flags & 7) + 1)) : null;
+  const canvas = new Uint8ClampedArray(W * H * 4), frames = [];
+  let trans = -1, disposal = 0;
+  const subBlocks = () => { const out = []; let n; while ((n = d[p++])) { for (let i = 0; i < n; i++) out.push(d[p++]); } return out; };
+  while (p < d.length){
+    const b = u8();
+    if (b === 0x3B) break;
+    if (b === 0x21){
+      const label = u8();
+      if (label === 0xF9){ p++; const f = u8(); p += 2; const ti = u8(); p++; disposal = (f >> 2) & 7; trans = f & 1 ? ti : -1; }
+      else subBlocks();
+      continue;
+    }
+    if (b !== 0x2C) break;
+    const fx = u16(), fy = u16(), fw = u16(), fh = u16(), lf = u8();
+    const ct = lf & 0x80 ? readCT(1 << ((lf & 7) + 1)) : gct;
+    const interlaced = !!(lf & 0x40);
+    const minCode = u8(), data = subBlocks();
+    const out = new Uint8Array(fw * fh); let op = 0;
+    const clear = 1 << minCode, eoi = clear + 1;
+    let size = minCode + 1, mask = (1 << size) - 1, next = eoi + 1, prev = -1;
+    const pre = new Int32Array(4096), suf = new Uint8Array(4096), first = new Uint8Array(4096), stack = new Uint8Array(4097);
+    for (let i = 0; i < clear; i++){ pre[i] = -1; suf[i] = i; first[i] = i; }
+    let bits = 0, acc = 0, bi = 0;
+    while (op < out.length){
+      while (bits < size && bi < data.length){ acc |= data[bi++] << bits; bits += 8; }
+      if (bits < size) break;
+      const code = acc & mask; acc >>>= size; bits -= size;
+      if (code === clear){ size = minCode + 1; mask = (1 << size) - 1; next = eoi + 1; prev = -1; continue; }
+      if (code === eoi) break;
+      let c = code, sp = 0;
+      if (prev === -1){ out[op++] = suf[code]; prev = code; continue; }
+      if (code >= next){ stack[sp++] = first[prev]; c = prev; }
+      while (c >= clear){ stack[sp++] = suf[c]; c = pre[c]; }
+      stack[sp++] = c;
+      const fc = c;
+      while (sp && op < out.length) out[op++] = stack[--sp];
+      if (next < 4096){ pre[next] = prev; suf[next] = fc; first[next] = first[prev]; next++;
+        if (next > mask && size < 12){ size++; mask = (1 << size) - 1; } }
+      prev = code;
+    }
+    const before = disposal === 3 ? canvas.slice() : null;
+    const rows = []; if (interlaced){ for (const [s, st] of [[0,8],[4,8],[2,4],[1,2]]) for (let y = s; y < fh; y += st) rows.push(y); } else for (let y = 0; y < fh; y++) rows.push(y);
+    rows.forEach((y, ri) => { for (let x = 0; x < fw; x++){
+      const ci = out[ri * fw + x]; if (ci === trans || !ct || !ct[ci]) continue;
+      const X = fx + x, Y = fy + y; if (X >= W || Y >= H) continue;
+      const o = (Y * W + X) * 4; canvas[o] = ct[ci][0]; canvas[o+1] = ct[ci][1]; canvas[o+2] = ct[ci][2]; canvas[o+3] = 255; } });
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    c.getContext('2d').putImageData(new ImageData(canvas.slice(), W, H), 0, 0);
+    frames.push(c);
+    if (disposal === 2){ for (let y = fy; y < fy + fh && y < H; y++) for (let x = fx; x < fx + fw && x < W; x++) canvas.fill(0, (y*W+x)*4, (y*W+x)*4 + 4); }
+    else if (disposal === 3 && before) canvas.set(before);
+    trans = -1; disposal = 0;
+  }
+  return frames;
+}
+const sample20 = all => { const n = all.length; return n <= 20 ? all : [...Array(20).keys()].map(i => all[Math.round(i * (n-1) / 19)]); };
+async function decodeFile(file){
+  if (!('ImageDecoder' in window) && (/gif/i.test(file.type) || /\.gif$/i.test(file.name))){
+    try { const all = decodeGif(await file.arrayBuffer()); if (all.length) return sample20(all); }
+    catch(e){ log('GIF decode fallback: ' + e.message); }
+  }
+  if ('ImageDecoder' in window && /gif|webp|png|apng/i.test(file.type)){
+    try {
+      const dec = new ImageDecoder({data: await file.arrayBuffer(), type: file.type});
+      await dec.tracks.ready; await dec.completed;
+      const n = dec.tracks.selectedTrack.frameCount, out = [];
+      for (const i of sample20([...Array(n).keys()])){ const {image} = await dec.decode({frameIndex:i}); out.push(image); }
+      return out;
+    } catch(e){ log('Frame decode fallback: ' + e.message); }
+  }
+  return [await createImageBitmap(file)];
+}
+
+/* ---------- Image tab ---------- */
+let imgSource = null, imgFrames = [], imgName = 'Picture', imgRot = 0, imgFlip = false;
+$('imgSlot').value = store.get('nextSlot', 3000);
+function renderImg(){
+  const fit = $('imgFit').value, opts = {rot:imgRot, flip:imgFlip, bright:+$('imgBright').value, sat:+$('imgSat').value/100};
+  imgFrames = imgSource ? imgSource.map(f => to32(f, f.displayWidth || f.width, f.displayHeight || f.height, fit, opts)) : [];
+  animate($('imgPreview'), imgFrames);
+  ['btnUploadImg','imgFav','imgToDraw'].forEach(i => $(i).disabled = !imgFrames.length);
+}
+$('imgFile').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try { imgSource = await decodeFile(f); imgName = f.name.replace(/\.[^.]+$/, '').slice(0, 40); imgRot = 0; imgFlip = false;
+    $('imgInfo').textContent = `${f.name} · ${imgSource.length} frame${imgSource.length>1?'s':''}`; renderImg(); }
+  catch(err){ toast('Could not read that image'); log(err.message); }
+};
+['imgFit','imgBright','imgSat'].forEach(i => $(i).addEventListener('input', renderImg));
+$('imgRot').onclick = () => { imgRot = (imgRot + 1) % 4; renderImg(); };
+$('imgFlip').onclick = () => { imgFlip = !imgFlip; renderImg(); };
+$('btnUploadImg').onclick = () => act(async () => {
+  const slot = getInt('imgSlot', 3000); if (!slotCheck(slot)) return;
+  const type = imgFrames.length > 1 ? 3 : 2;
+  $('btnUploadImg').disabled = true;
+  try {
+    await Dev.uploadImage(Enc.deviceId(type, slot), Enc.pixelData(imgFrames, false), f => prog('imgProg', f, 'imgProgTxt'));
+    toast(`Saved to slot ${slot}`); bumpSlot('imgSlot', slot);
+  } finally { $('btnUploadImg').disabled = false; }
+});
+$('imgFav').onclick = () => { const slot = getInt('imgSlot', 3000); addImageFav(imgName, imgFrames.length > 1 ? 3 : 2, slot, Enc.pixelData(imgFrames, false)); bumpSlot('imgSlot', slot); };
+$('imgToDraw').onclick = () => { Draw.load(imgFrames); $('drawSlot').value = getInt('imgSlot', 3000); document.querySelector('#tabs [data-tab=draw]').click(); };
+drawLED($('imgPreview'), null);
+
+/* ---------- Draw tab ---------- */
+const dc = $('drawCanvas');
+const Draw = {
+  frames:[blank()], cur:0, undoStack:[], redoStack:[], tool:'pen', rgb:[255,176,32], stamp:null, playT:null,
+  get px(){ return this.frames[this.cur]; },
+  snapshot(){ this.undoStack.push({frames:this.frames.map(f => f.slice()), cur:this.cur}); if (this.undoStack.length > 60) this.undoStack.shift(); this.redoStack = []; },
+  restore(s){ this.frames = s.frames; this.cur = Math.min(s.cur, this.frames.length - 1); this.render(); this.renderStrip(); this.syncLive(); },
+  undo(){ const s = this.undoStack.pop(); if (!s) return; this.redoStack.push({frames:this.frames.map(f => f.slice()), cur:this.cur}); this.restore(s); },
+  redo(){ const s = this.redoStack.pop(); if (!s) return; this.undoStack.push({frames:this.frames.map(f => f.slice()), cur:this.cur}); this.restore(s); },
+  load(frames){ this.snapshot(); this.frames = frames.map(f => { const c = new Uint8ClampedArray(f); for (let i = 3; i < c.length; i += 4) c[i] = 255; return c; }); if (!this.frames.length) this.frames = [blank()]; this.cur = 0; this.render(); this.renderStrip(); },
+  render(){ const onion = $('onion').checked && this.cur > 0 ? this.frames[this.cur - 1] : null; drawLED(dc, this.px, true, onion); },
+  renderStrip(){
+    const el = $('frameStrip'); el.innerHTML = '';
+    this.frames.forEach((f, i) => {
+      const d = document.createElement('div'); d.className = 'fr' + (i === this.cur ? ' sel' : '');
+      d.appendChild(thumbCanvas(f, 44)); const n = document.createElement('span'); n.textContent = i + 1; d.appendChild(n);
+      d.onclick = () => { this.cur = i; this.stopPlay(); this.render(); this.renderStrip(); this.syncLive(); };
+      el.appendChild(d);
+    });
+  },
+  syncLive(){ if ($('drawLive').checked && Dev.connected) Live.push(this.px).catch(e => log('live: ' + e.message)); },
+  liveTimer:null,
+  queueLive(){ if (!$('drawLive').checked || !Dev.connected || this.liveTimer) return; this.liveTimer = setTimeout(() => { this.liveTimer = null; this.syncLive(); }, 35); },
+  set(x, y, rgb){
+    const pts = [[x, y]]; if ($('mirror').checked) pts.push([31 - x, y]);
+    const b = +$('drawBrush').value, o = b === 3 ? -1 : 0;
+    for (const [px, py] of pts) for (let dy = 0; dy < b; dy++) for (let dx = 0; dx < b; dx++){
+      const X = px + dx + o, Y = py + dy + o; if (X < 0 || Y < 0 || X > 31 || Y > 31) continue;
+      const i = (Y*32+X)*4; this.px[i] = rgb[0]; this.px[i+1] = rgb[1]; this.px[i+2] = rgb[2]; this.px[i+3] = 255;
+    }
+  },
+  fill(x, y){
+    const p = this.px, i0 = (y*32+x)*4, t = [p[i0], p[i0+1], p[i0+2]], r = this.rgb;
+    if (t[0] === r[0] && t[1] === r[1] && t[2] === r[2]) return;
+    const st = [[x, y]], seen = new Uint8Array(1024);
+    while (st.length){ const [cx, cy] = st.pop(); if (cx < 0 || cy < 0 || cx > 31 || cy > 31) continue; const k = cy*32+cx; if (seen[k]) continue; seen[k] = 1;
+      const i = k*4; if (p[i] !== t[0] || p[i+1] !== t[1] || p[i+2] !== t[2]) continue;
+      p[i] = r[0]; p[i+1] = r[1]; p[i+2] = r[2]; p[i+3] = 255; st.push([cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]); }
+  },
+  line(a, b, rgb){ let [x0,y0] = a; const [x1,y1] = b, dx = Math.abs(x1-x0), dy = -Math.abs(y1-y0), sx = x0<x1?1:-1, sy = y0<y1?1:-1; let err = dx+dy;
+    for(;;){ this.set(x0, y0, rgb); if (x0===x1 && y0===y1) break; const e2 = 2*err; if (e2 >= dy){ err += dy; x0 += sx; } if (e2 <= dx){ err += dx; y0 += sy; } } },
+  rect(a, b, rgb){ const [x0, y0] = a, [x1, y1] = b; this.line([x0,y0],[x1,y0],rgb); this.line([x1,y0],[x1,y1],rgb); this.line([x1,y1],[x0,y1],rgb); this.line([x0,y1],[x0,y0],rgb); },
+  stopPlay(){ if (this.playT){ clearInterval(this.playT); this.playT = null; $('frPlay').textContent = '▶ Play'; this.render(); } }
+};
+buildSwatches($('drawSwatches'), (i, c) => { Draw.rgb = hexToRgb(c.hex); $('drawColor').value = c.hex; if (Draw.tool === 'eraser' || Draw.tool === 'picker') selTool('pen'); }, -1);
+$('drawColor').oninput = e => { Draw.rgb = hexToRgb(e.target.value); $('drawSwatches').querySelectorAll('.sw').forEach(x => x.classList.remove('sel')); };
+function selTool(t){ Draw.tool = t; Draw.stamp = t === 'stamp' ? Draw.stamp : null; document.querySelectorAll('#tools [data-tool]').forEach(b => b.classList.toggle('sel', b.dataset.tool === t)); }
+document.querySelectorAll('#tools [data-tool]').forEach(b => b.onclick = () => selTool(b.dataset.tool));
+$('undo').onclick = () => Draw.undo(); $('redo').onclick = () => Draw.redo();
+document.addEventListener('keydown', e => { if (!(e.ctrlKey || e.metaKey) || !$('tab-draw').classList.contains('active')) return;
+  if (e.key === 'z' && !e.shiftKey){ e.preventDefault(); Draw.undo(); } else if (e.key === 'y' || (e.key === 'z' && e.shiftKey)){ e.preventDefault(); Draw.redo(); } });
+$('stampBtn').onclick = () => { const t = $('stampText').value.trim(); if (!t) return toast('Type some text first'); Draw.stamp = t; Draw.tool = 'stamp'; document.querySelectorAll('#tools [data-tool]').forEach(b => b.classList.remove('sel')); toast('Tap where the text should start'); };
+let dStart = null, dLast = null, dBase = null, dDown = false;
+function cell(e){ const r = dc.getBoundingClientRect(); return [Math.max(0, Math.min(31, Math.floor((e.clientX - r.left) / r.width * 32))), Math.max(0, Math.min(31, Math.floor((e.clientY - r.top) / r.height * 32)))]; }
+dc.onpointerdown = e => {
+  Draw.stopPlay(); const c = cell(e); dDown = true; dc.setPointerCapture(e.pointerId);
+  const t = Draw.tool;
+  if (t === 'picker'){ const i = (c[1]*32+c[0])*4; Draw.rgb = [Draw.px[i], Draw.px[i+1], Draw.px[i+2]]; $('drawColor').value = rgbToHex(...Draw.rgb); selTool('pen'); dDown = false; return; }
+  Draw.snapshot();
+  if (t === 'fill'){ Draw.fill(c[0], c[1]); dDown = false; }
+  else if (t === 'stamp'){ putText3(Draw.px, Draw.stamp, c[0], c[1], Draw.rgb); selTool('pen'); dDown = false; }
+  else if (t === 'line' || t === 'rect'){ dStart = c; dBase = Draw.px.slice(); }
+  else { dLast = c; Draw.set(c[0], c[1], t === 'eraser' ? [0,0,0] : Draw.rgb); }
+  Draw.render(); Draw.queueLive();
+};
+dc.onpointermove = e => {
+  if (!dDown) return; const c = cell(e), t = Draw.tool;
+  if (t === 'line' || t === 'rect'){ Draw.px.set(dBase); Draw[t](dStart, c, Draw.rgb); }
+  else if (dLast && (c[0] !== dLast[0] || c[1] !== dLast[1])){ Draw.line(dLast, c, t === 'eraser' ? [0,0,0] : Draw.rgb); dLast = c; }
+  Draw.render(); Draw.queueLive();
+};
+dc.onpointerup = dc.onpointercancel = () => { if (!dDown) return; dDown = false; dLast = dStart = dBase = null; Draw.renderStrip(); Draw.queueLive(); };
+$('onion').onchange = () => Draw.render();
+$('frAdd').onclick = () => { if (Draw.frames.length >= 20) return toast('20 frames maximum'); Draw.snapshot(); Draw.frames.splice(Draw.cur + 1, 0, blank()); Draw.cur++; Draw.render(); Draw.renderStrip(); Draw.syncLive(); };
+$('frDup').onclick = () => { if (Draw.frames.length >= 20) return toast('20 frames maximum'); Draw.snapshot(); Draw.frames.splice(Draw.cur + 1, 0, Draw.px.slice()); Draw.cur++; Draw.render(); Draw.renderStrip(); };
+$('frDel').onclick = () => { Draw.snapshot(); if (Draw.frames.length === 1) Draw.frames[0] = blank(); else { Draw.frames.splice(Draw.cur, 1); Draw.cur = Math.max(0, Draw.cur - 1); } Draw.render(); Draw.renderStrip(); Draw.syncLive(); };
+$('frPlay').onclick = () => {
+  if (Draw.playT) return Draw.stopPlay();
+  if (Draw.frames.length < 2) return toast('Add more frames to animate');
+  let i = 0; $('frPlay').textContent = '■ Stop';
+  Draw.playT = setInterval(() => { drawLED(dc, Draw.frames[i], true); i = (i + 1) % Draw.frames.length; }, 150);
+};
+$('drawLive').onchange = e => { if (e.target.checked) act(async () => { await Live.reset(); await Live.push(Draw.px); }); };
+$('drawClear').onclick = () => { Draw.snapshot(); Draw.px.fill(0); Draw.render(); Draw.renderStrip(); Draw.syncLive(); };
+$('drawSave').onclick = () => act(async () => {
+  const slot = getInt('drawSlot', 3100); if (!slotCheck(slot)) return;
+  await Dev.uploadImage(Enc.deviceId(Draw.frames.length > 1 ? 3 : 2, slot), Enc.pixelData(Draw.frames, false), f => prog('drawProg', f));
+  toast(`Saved to slot ${slot}`);
+});
+$('drawFav').onclick = () => { const n = prompt('Name this drawing', 'My drawing'); if (n === null) return;
+  addImageFav(n.trim() || 'My drawing', Draw.frames.length > 1 ? 3 : 2, getInt('drawSlot', 3100), Enc.pixelData(Draw.frames, false)); };
+Draw.render(); Draw.renderStrip();
+
+/* ---------- Text tab ---------- */
+let tkColor = 1, tkSize = 1;
+buildSwatches($('tkSwatches'), i => tkColor = i, 1);
+document.querySelectorAll('.tkSize').forEach(b => b.onclick = () => { document.querySelectorAll('.tkSize').forEach(x => x.classList.toggle('sel', x === b)); tkSize = +b.dataset.size; });
+$('tkText').oninput = () => {
+  const bad = Enc.unsupported($('tkText').value);
+  $('tkWarn').textContent = bad.length ? `Not in the display's font (shown as spaces): ${bad.join(' ')}` : 'Supports A–Z, digits, common punctuation, accented Latin and Cyrillic.';
+};
+$('btnTicker').onclick = () => act(async () => {
+  const t = $('tkText').value; if (!t.trim()) return toast('Type something first');
+  await Dev.ticker(t, tkSize, tkColor, Enc.speedToDelay(+$('tkSpeed').value)); toast('Scrolling');
+});
+$('tkFav').onclick = () => { const t = $('tkText').value.trim(); if (!t) return toast('Type something first');
+  addFav({kind:'text', name:t.slice(0, 40), text:t, color:tkColor, size:tkSize, speed:+$('tkSpeed').value}); };
+
+/* ---------- Emoji maker ---------- */
+let emFrames = [];
+['😎','❤️','👍','😂','🔥','🎉','🙏','😡','🐶','🍕','⚡','🌈'].forEach(e => {
+  const b = document.createElement('button'); b.className = 'sm'; b.textContent = e; b.style.fontSize = '18px';
+  b.onclick = () => { $('emText').value = e; renderEmoji(); }; $('emQuick').appendChild(b);
+});
+function renderEmoji(){
+  const t = $('emText').value.trim(); if (!t){ emFrames = []; drawLED($('emPreview'), null); return; }
+  const c = document.createElement('canvas'); c.width = c.height = 256; const x = c.getContext('2d');
+  x.fillStyle = $('emBg').value; x.fillRect(0, 0, 256, 256);
+  const font = sz => `${sz}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif`;
+  x.font = font(200); const m = x.measureText(t);
+  const w = (m.actualBoundingBoxLeft + m.actualBoundingBoxRight) || m.width, h = (m.actualBoundingBoxAscent + m.actualBoundingBoxDescent) || 200;
+  const sc = Math.min(240 / w, 240 / h) * (+$('emScale').value / 100), sz = 200 * sc;
+  x.font = font(sz); const m2 = x.measureText(t);
+  x.textBaseline = 'alphabetic'; x.fillStyle = '#fff';
+  const left = 128 - ((m2.actualBoundingBoxRight || m2.width) - (m2.actualBoundingBoxLeft || 0)) / 2;
+  const base = 128 + ((m2.actualBoundingBoxAscent || sz*0.8) - (m2.actualBoundingBoxDescent || 0)) / 2;
+  x.fillText(t, left, base);
+  emFrames = [to32(c, 256, 256, 'stretch', {bg:$('emBg').value})];
+  drawLED($('emPreview'), emFrames[0]);
+}
+['emText','emScale','emBg'].forEach(i => $(i).addEventListener('input', renderEmoji));
+$('emSend').onclick = () => act(async () => { if (!emFrames.length) return; const slot = getInt('emSlot', 3500); if (!slotCheck(slot)) return;
+  await Dev.uploadImage(Enc.deviceId(2, slot), Enc.pixelData(emFrames, false), f => prog('emProg', f)); toast(`Saved to slot ${slot}`); $('emSlot').value = Math.min(4095, slot + 1); });
+$('emFav').onclick = () => { if (!emFrames.length) return; const slot = getInt('emSlot', 3500); addImageFav($('emText').value.trim().slice(0, 20), 2, slot, Enc.pixelData(emFrames, false)); $('emSlot').value = Math.min(4095, slot + 1); };
+$('emToDraw').onclick = () => { if (!emFrames.length) return; Draw.load(emFrames); document.querySelector('#tabs [data-tab=draw]').click(); };
+renderEmoji();
+
+/* ---------- Clock & countdown ---------- */
+let clkColor = 7, cdColor = 2;
+buildSwatches($('clkSwatches'), i => { clkColor = i; renderClock(); }, 7, true);
+buildSwatches($('cdSwatches'), i => cdColor = i, 2, true);
+const DAYS = ['SUN','MON','TUE','WED','THU','FRI','SAT'], MONTHS = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+function bigTime(px, a, b, colonOn, rgb, y){
+  const s = a + b; // 4 digits
+  const xs = [3, 9, 18, 24];
+  [...s].forEach((d, i) => putDigit5(px, d, xs[i], y, rgb));
+  if (colonOn){ setPx(px, 15, y + 2, rgb); setPx(px, 15, y + 4, rgb); setPx(px, 16, y + 2, rgb); setPx(px, 16, y + 4, rgb); }
+}
+function clockImage(now = new Date()){
+  const px = blank(), rgb = hexToRgb(BASIC[clkColor].hex);
+  let h = now.getHours(); if (!$('clk24').checked){ h = h % 12 || 12; }
+  const date = $('clkDate').checked, y = date ? 5 : 11;
+  bigTime(px, String(h).padStart(2, '0'), String(now.getMinutes()).padStart(2, '0'), now.getSeconds() % 2 === 0, rgb, y);
+  if (date){ const t = `${DAYS[now.getDay()]} ${now.getDate()}`; putText3(px, t, (32 - textWidth3(t)) >> 1, 17, rgb);
+    const m = MONTHS[now.getMonth()]; putText3(px, m, (32 - textWidth3(m)) >> 1, 23, [255, 255, 255]); }
+  if ($('clkSec').checked){ const n = Math.floor(now.getSeconds() / 2); for (let i = 0; i < n; i++) setPx(px, 1 + i, 30, [255, 255, 255]); }
+  return px;
+}
+function renderClock(){ if ($('tab-live').classList.contains('active')) drawLED($('clockPreview'), clockImage()); }
+setInterval(renderClock, 1000); renderClock();
+['clk24','clkDate','clkSec'].forEach(i => $(i).addEventListener('change', renderClock));
+$('clkStart').onclick = () => act(async () => {
+  await Live.reset();
+  Runner.start('clock', 'Clock is running on the display', () => Live.push(clockImage()), () => 1000 - (Date.now() % 1000) + 20);
+});
+$('cdStart').onclick = () => act(async () => {
+  const total = getInt('cdMin', 5) * 60 + getInt('cdSec', 0); if (total <= 0) return toast('Set a time first');
+  const end = Date.now() + total * 1000, rgb = hexToRgb(BASIC[cdColor].hex);
+  await Live.reset(); let flash = 0;
+  Runner.start('countdown', 'Countdown running', async () => {
+    const left = Math.max(0, Math.ceil((end - Date.now()) / 1000)), px = blank();
+    if (left > 0){
+      const mm = Math.floor(left / 60), ss = left % 60;
+      if (mm >= 100){ const t = `${mm} MIN`; putText3(px, t, (32 - textWidth3(t)) >> 1, 13, rgb); }
+      else bigTime(px, String(mm).padStart(2, '0'), String(ss).padStart(2, '0'), true, rgb, 9);
+      const bar = Math.round(30 * left / total); for (let i = 0; i < bar; i++) setPx(px, 1 + i, 24, [255,255,255]);
+      Runner.label(`Countdown: ${mm}:${String(ss).padStart(2, '0')} left`);
+    } else {
+      const on = flash++ % 2 === 0;
+      if (on) for (let i = 0; i < 1024; i++){ px[i*4] = rgb[0]; px[i*4+1] = rgb[1]; px[i*4+2] = rgb[2]; }
+      const ink = on ? [0,0,0] : rgb;
+      putText3(px, 'TIME', (32 - textWidth3('TIME')) >> 1, 10, ink);
+      putText3(px, 'UP!', (32 - textWidth3('UP!')) >> 1, 17, ink);
+      Runner.label("Time's up!");
+      if (flash > 20) Runner.stop();
+    }
+    await Live.push(px);
+  }, () => Date.now() >= end ? 500 : ((end - Date.now()) % 1000) + 10);
+});
+
+/* ---------- Playlist ---------- */
+let playlist = store.get('playlist', []); // fav ids
+function savePl(){ store.set('playlist', playlist); renderPl(); }
+function refreshPlAdd(){ $('plAdd').innerHTML = favs.length ? favs.map(f => `<option value="${f.id}">${f.kind === 'text' ? '💬 ' : '🖼 '}${f.name.replace(/</g,'&lt;')}</option>`).join('') : '<option value="">Save some favourites first</option>'; renderPl(); }
+function renderPl(nowIdx = -1){
+  const el = $('plList'); el.innerHTML = '';
+  playlist = playlist.filter(id => favs.some(f => f.id === id));
+  if (!playlist.length){ el.innerHTML = '<div class="empty">Empty. Add favourites below.</div>'; return; }
+  playlist.forEach((id, i) => {
+    const f = favs.find(x => x.id === id), d = document.createElement('div'); d.className = 'it' + (i === nowIdx ? ' now' : '');
+    const th = document.createElement('div'); th.className = 'thumb'; if (f.kind === 'image') th.appendChild(favThumb(f, 32)); else { th.textContent = '💬'; th.style.cssText += ';display:flex;align-items:center;justify-content:center'; }
+    const n = document.createElement('div'); n.className = 'n'; n.textContent = f.name;
+    const up = document.createElement('button'); up.className = 'sm ghost'; up.textContent = '↑'; up.disabled = i === 0; up.onclick = () => { [playlist[i-1], playlist[i]] = [playlist[i], playlist[i-1]]; savePl(); };
+    const rm = document.createElement('button'); rm.className = 'sm ghost danger'; rm.textContent = '✕'; rm.onclick = () => { playlist.splice(i, 1); savePl(); };
+    d.append(th, n, up, rm); el.appendChild(d);
+  });
+}
+$('plAddBtn').onclick = () => { const id = $('plAdd').value; if (!id) return; playlist.push(id); savePl(); };
+$('plPrep').onclick = () => act(async () => {
+  const imgs = [...new Set(playlist)].map(id => favs.find(f => f.id === id)).filter(f => f && f.kind === 'image');
+  if (!imgs.length) return toast('No pictures in the playlist');
+  for (let i = 0; i < imgs.length; i++){ await uploadFav(imgs[i], p => prog('plProg', (i + p) / imgs.length)); }
+  toast('All playlist pictures uploaded');
+});
+$('plStart').onclick = () => act(async () => {
+  if (!playlist.length) return toast('Add items first');
+  let order = playlist.slice(), i = 0;
+  if ($('plShuffle').checked) order.sort(() => Math.random() - 0.5);
+  await Dev.screenMode('const');
+  Runner.start('playlist', 'Playlist running', async () => {
+    const f = favs.find(x => x.id === order[i % order.length]); i++;
+    if (i % order.length === 0 && $('plShuffle').checked) order.sort(() => Math.random() - 0.5);
+    if (!f) return;
+    Runner.label(`Playlist: ${f.name}`); renderPl(playlist.indexOf(f.id));
+    await playFav(f, true);
+  }, () => Math.max(2, getInt('plSecs', 8)) * 1000);
+});
+Runner.onStop = n => { if (n === 'playlist') renderPl(); };
+
+/* ---------- Library (reads the APK in-browser) ---------- */
+const Lib = { items:[], zip:null, thumbs:null, onDevice:new Set(), sel:null };
+async function openZip(file){
+  const buf = new Uint8Array(await file.arrayBuffer()), dv = new DataView(buf.buffer);
+  let e = buf.length - 22; while (e >= 0 && dv.getUint32(e, true) !== 0x06054b50) e--;
+  if (e < 0) throw new Error('Not a zip/APK file');
+  const n = dv.getUint16(e + 10, true); let p = dv.getUint32(e + 16, true);
+  const td = new TextDecoder(), entries = new Map();
+  for (let i = 0; i < n; i++){
+    if (dv.getUint32(p, true) !== 0x02014b50) throw new Error('Corrupt zip directory');
+    const method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true),
+      nlen = dv.getUint16(p + 28, true), xlen = dv.getUint16(p + 30, true), clen = dv.getUint16(p + 32, true), lho = dv.getUint32(p + 42, true);
+    entries.set(td.decode(buf.subarray(p + 46, p + 46 + nlen)), {method, csize, lho});
+    p += 46 + nlen + xlen + clen;
+  }
+  return {
+    entries,
+    async read(name){
+      const en = entries.get(name); if (!en) throw new Error('missing ' + name);
+      const l = en.lho, start = l + 30 + dv.getUint16(l + 26, true) + dv.getUint16(l + 28, true);
+      const data = buf.subarray(start, start + en.csize);
+      if (en.method === 0) return data;
+      const s = new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+      return new Uint8Array(await new Response(s).arrayBuffer());
+    }
+  };
+}
+const natKey = s => s.split(/(\d+)/).map(t => /^\d+$/.test(t) ? t.padStart(8,'0') : t).join('');
+async function decodeFrame(path){
+  const bmp = await createImageBitmap(new Blob([await Lib.zip.read(path)]));
+  wctx.fillStyle = '#000'; wctx.fillRect(0,0,32,32); wctx.imageSmoothingEnabled = false;
+  wctx.drawImage(bmp, 0, 0, 32, 32, 0, 0, 32, 32);
+  return wctx.getImageData(0, 0, 32, 32).data.slice();
+}
+$('apkFile').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  $('libInfo').textContent = 'Reading APK…'; prog('libProg', 0.02);
+  try {
+    Lib.zip = await openZip(f);
+    const groups = new Map();
+    for (const name of Lib.zip.entries.keys()){
+      const m = name.match(/^assets\/categories\/([^/]+)\/(\d+)_([^/]+)\/([^/]+\.(?:bmp|jpg|jpeg|png))$/i);
+      if (!m) continue;
+      const key = m[1] + '/' + m[2] + '_' + m[3];
+      if (!groups.has(key)) groups.set(key, {cat:m[1], id:+m[2], name:m[3], frames:[]});
+      groups.get(key).frames.push(name);
+    }
+    if (!groups.size) throw new Error('No Mojipic picture library found in that file');
+    Lib.items = [...groups.values()].map(it => {
+      it.frames.sort((a,b) => natKey(a) < natKey(b) ? -1 : 1);
+      const gif = it.frames.length > 1;
+      it.type = (it.id > 237 && !it.name.includes('(8bit)')) ? (gif ? 1 : 0) : (gif ? 3 : 2);
+      return it;
+    });
+    const cols = 64, rows = Math.ceil(Lib.items.length / cols);
+    Lib.thumbs = document.createElement('canvas'); Lib.thumbs.width = cols*32; Lib.thumbs.height = rows*32;
+    const tctx = Lib.thumbs.getContext('2d'), B = 24;
+    for (let i = 0; i < Lib.items.length; i += B){
+      await Promise.all(Lib.items.slice(i, i+B).map(async (it, j) => {
+        try { const bmp = await createImageBitmap(new Blob([await Lib.zip.read(it.frames[0])])); const k = i + j; it.thumb = k;
+          tctx.drawImage(bmp, 0, 0, 32, 32, (k % cols)*32, Math.floor(k / cols)*32, 32, 32); } catch(err){ it.thumb = -1; }
+      }));
+      const done = Math.min(Lib.items.length, i + B); prog('libProg', done / Lib.items.length);
+      $('libInfo').textContent = `Decoding ${done} / ${Lib.items.length}…`;
+    }
+    const cats = [...new Set(Lib.items.map(i => i.cat))].sort();
+    $('libCat').innerHTML = '<option value="">All categories</option>' + cats.map(c => `<option>${c.replace(/</g,'&lt;')}</option>`).join('');
+    $('libControls').hidden = false;
+    $('libInfo').textContent = `${Lib.items.length} pictures in ${cats.length} categories`;
+    $('btnScan').disabled = !Dev.connected;
+    renderLib();
+  } catch(err){ $('libInfo').textContent = err.message; log('Library: ' + err.message); prog('libProg', 0); }
+};
+function renderLib(){
+  const q = $('libSearch').value.trim().toLowerCase(), cat = $('libCat').value, only = $('libOnlyDev').checked;
+  const list = Lib.items.filter(it => (!cat || it.cat === cat) && (!q || it.name.toLowerCase().includes(q) || String(it.id) === q) && (!only || Lib.onDevice.has(it.id)));
+  const grid = $('libGrid'); grid.innerHTML = '';
+  const frag = document.createDocumentFragment(), cols = 64;
+  list.slice(0, 900).forEach(it => {
+    const d = document.createElement('div'); d.className = 'tile' + (Lib.onDevice.has(it.id) ? ' ondev' : '') + (Lib.sel === it ? ' sel' : '');
+    d.title = `${it.name} (#${it.id})`;
+    const c = document.createElement('canvas'); c.width = c.height = 32;
+    if (it.thumb >= 0) c.getContext('2d').drawImage(Lib.thumbs, (it.thumb % cols)*32, Math.floor(it.thumb / cols)*32, 32, 32, 0, 0, 32, 32);
+    d.appendChild(c);
+    if (it.frames.length > 1){ const s = document.createElement('span'); s.className = 'badge'; s.textContent = 'GIF'; d.appendChild(s); }
+    d.onclick = () => selectLib(it, d);
+    frag.appendChild(d);
+  });
+  if (!list.length) grid.innerHTML = '<span class="muted">Nothing matches.</span>';
+  grid.appendChild(frag);
+  if (list.length > 900){ const m = document.createElement('div'); m.className = 'muted'; m.style.gridColumn = '1/-1'; m.textContent = `Showing 900 of ${list.length}. Search or pick a category to narrow it down.`; grid.appendChild(m); }
+}
+async function selectLib(it, el){
+  Lib.sel = it;
+  document.querySelectorAll('#libGrid .tile.sel').forEach(x => x.classList.remove('sel')); el && el.classList.add('sel');
+  $('libDetail').hidden = false; $('libName').textContent = it.name;
+  $('libMeta').textContent = `id ${it.id} · ${it.cat} · ${it.frames.length} frame${it.frames.length>1?'s':''} · ${it.type < 2 ? '1-bit colour' : 'full colour'}${Lib.onDevice.size ? (Lib.onDevice.has(it.id) ? ' · on display' : ' · not found on display') : ''}`;
+  if (!it.px) it.px = await Promise.all(it.frames.map(decodeFrame));
+  if (Lib.sel === it) animate($('libPreview'), it.px);
+  $('libDetail').scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+['libSearch','libCat','libOnlyDev'].forEach(id => $(id).addEventListener('input', renderLib));
+$('libShow').onclick = () => act(async () => { const it = Lib.sel; if (it) await Dev.show(Enc.deviceId(it.type, it.id)); });
+$('libUpload').onclick = () => act(async () => {
+  const it = Lib.sel; if (!it) return;
+  if (!it.px) it.px = await Promise.all(it.frames.map(decodeFrame));
+  await Dev.uploadImage(Enc.deviceId(it.type, it.id), Enc.pixelData(it.px, it.type < 2), f => prog('libUpProg', f));
+  Lib.onDevice.add(it.id); toast(`${it.name} uploaded`);
+});
+$('libFav').onclick = async () => { const it = Lib.sel; if (!it) return; if (!it.px) it.px = await Promise.all(it.frames.map(decodeFrame));
+  addImageFav(it.name, it.type, it.id, Enc.pixelData(it.px, it.type < 2)); };
+$('btnScan').onclick = () => act(async () => {
+  $('btnScan').disabled = true; $('libInfo').textContent = 'Scanning display memory…';
+  try {
+    const ids = await Dev.scanIds(f => prog('libProg', f));
+    Lib.onDevice = new Set(ids.map(i => i & 4095));
+    $('libInfo').textContent = `${ids.length} pictures stored on the display (green dot)`;
+    log('Stored ids: ' + ids.map(i => i & 4095).join(', '));
+    renderLib();
+  } finally { $('btnScan').disabled = false; }
+});
+
+/* ---------- Settings ---------- */
+$('autoOff').value = store.get('autoOff', 0);
+$('autoOffSet').onclick = () => act(async () => { const s = Math.max(0, Math.min(180, getInt('autoOff', 0))); $('autoOff').value = s; store.set('autoOff', s); await Dev.autoOff(s); toast(s ? `Display turns off ${s}s after disconnect` : 'Auto-off disabled'); }, true);
+$('autoRe').checked = store.get('autoRe', true);
+$('autoRe').onchange = e => store.set('autoRe', e.target.checked);
+$('bkExport').onclick = () => {
+  const data = { app:'mojipic-controller', version:2, exported:new Date().toISOString(), favs, playlist,
+    settings:{ theme:store.get('theme','auto'), bright:store.get('bright',50), autoOff:store.get('autoOff',0), autoRe:store.get('autoRe',true), nextSlot:store.get('nextSlot',3000) } };
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(data)], {type:'application/json'}));
+  a.download = `mojipic-backup-${new Date().toISOString().slice(0,10)}.json`; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+};
+$('bkImport').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try {
+    const d = JSON.parse(await f.text()); if (d.app !== 'mojipic-controller' || !Array.isArray(d.favs)) throw new Error('Not a Mojipic Controller backup');
+    const have = new Set(favs.map(x => x.id)); let added = 0;
+    d.favs.forEach(x => { if (x && (x.kind === 'text' || x.kind === 'image') && !have.has(x.id)){ favs.push(x); added++; } });
+    if (Array.isArray(d.playlist) && !playlist.length) playlist = d.playlist;
+    if (d.settings){ Object.entries(d.settings).forEach(([k, v]) => store.set(k, v)); applyTheme(store.get('theme','auto')); $('autoOff').value = store.get('autoOff',0); $('autoRe').checked = store.get('autoRe',true); }
+    saveFavs(); store.set('playlist', playlist); toast(`Imported ${added} favourite${added === 1 ? '' : 's'}`);
+  } catch(err){ toast(err.message); }
+  e.target.value = '';
+};
+
+/* ---------- start ---------- */
+renderFavs(); refreshPlAdd();
+{ const t = store.get('tab', 'favs'); const b = document.querySelector(`#tabs button[data-tab="${t}"]`); b && b.click(); }
+</script>
+</body>
+</html>
