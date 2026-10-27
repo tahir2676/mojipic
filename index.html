@@ -127,7 +127,7 @@ function __showErr(m){
     b.onclick = function(){ b.style.display = 'none'; };
     (document.body || document.documentElement).appendChild(b); }
   b.style.display = 'block';
-  b.textContent = 'Page error - please screenshot this (tap to hide):\n' + window.__errs.join('\n') + '\n\n' + navigator.userAgent + '\nBluetooth API: ' + (!!navigator.bluetooth);
+  b.textContent = 'Page error - please screenshot this (tap to hide)\n' + navigator.userAgent + '\nBluetooth API: ' + (!!navigator.bluetooth) + '\n\n' + window.__errs.join('\n');
 }
 window.addEventListener('error', function(e){ __showErr((e.message || 'error') + ' [line ' + (e.lineno || '?') + ':' + (e.colno || '?') + ']'); });
 window.addEventListener('unhandledrejection', function(e){ var r = e.reason; __showErr('async: ' + (r && (r.stack || r.message) || r)); });
@@ -468,7 +468,9 @@ window.addEventListener('unhandledrejection', function(e){ var r = e.reason; __s
 </div>
 
 <script>
+(function(){
 "use strict";
+const safe = (fn, name) => { try { fn(); } catch(e){ __showErr(name + ": " + (e && e.message || e)); } };
 /* ============================================================
    Mojipic BLE protocol: reverse-engineered from app v4.8.0
    ============================================================ */
@@ -713,7 +715,7 @@ const Dev = {
     if (!this.has('BATTERY')) return;
     try { const b = await this.read('BATTERY'); document.getElementById('battery').textContent = `Battery: ${b[0]}%`; } catch(e){}
   },
-  disconnect(){ this.userDisconnect = true; if (this.device?.gatt?.connected) this.device.gatt.disconnect(); else this.onDisconnected(); },
+  disconnect(){ this.userDisconnect = true; if (this.device && this.device.gatt && this.device.gatt.connected) this.device.gatt.disconnect(); else this.onDisconnected(); },
   onDisconnected(){
     const was = this.connected;
     this.connected = false; this.chars = {}; this.queue = Promise.resolve();
@@ -941,14 +943,14 @@ function applyTheme(t){
   document.querySelector('meta[name=theme-color]').content = dark ? '#0b0d10' : '#f3f1ec';
 }
 $('themeSeg').onclick = e => { const b = e.target.closest('button'); if (!b) return; store.set('theme', b.dataset.theme); applyTheme(b.dataset.theme); };
-applyTheme(store.get('theme', 'auto'));
+safe(() => applyTheme(store.get('theme', 'auto')), 'theme');
 
 /* ---------- header & tabs ---------- */
 if (!navigator.bluetooth) $('noBt').classList.remove('hide');
 async function doConnect(all){
   try { await Dev.connect(all); }
   catch(e){ log('Connect failed: ' + e.message); setStatus('', 'Not connected'); if (!/cancel/i.test(e.message)) toast(e.message);
-    if (Dev.device?.gatt?.connected){ Dev.userDisconnect = true; Dev.device.gatt.disconnect(); } }
+    if (Dev.device && Dev.device.gatt && Dev.device.gatt.connected){ Dev.userDisconnect = true; Dev.device.gatt.disconnect(); } }
 }
 $('btnConnect').onclick = () => doConnect(false);
 $('btnConnectAll').onclick = () => doConnect(true);
@@ -962,8 +964,7 @@ $('tabs').onclick = e => {
   if (b.dataset.tab === 'live'){ refreshPlAdd(); renderClock(); }
 };
 
-</script>
-<script>
+
 /* ---------- Favourites ---------- */
 const DEFAULT_FAVS = [
   {id:'d1', kind:'text', name:'Thanks!', text:'Thanks!', color:3, size:1, speed:60},
@@ -977,7 +978,7 @@ function addFav(f){ f.id = uid(); favs.unshift(f); saveFavs(); toast(`★ Saved 
 function addImageFav(name, type, slot, data){ addFav({kind:'image', name, type, slot, data: Enc.b64(data)}); }
 function favThumb(f, size = 44){
   if (f.kind === 'image') return thumbCanvas(Enc.toRGBA(Enc.unb64(f.data).subarray(0, 3072))[0], size);
-  const d = document.createElement('div'); d.textContent = f.text.slice(0, 10); d.style.color = BASIC[f.color]?.hex || '#fff'; if (f.color === 0) d.style.color = '#888'; return d;
+  const d = document.createElement('div'); d.textContent = f.text.slice(0, 10); d.style.color = (BASIC[f.color] ? BASIC[f.color].hex : '#fff'); if (f.color === 0) d.style.color = '#888'; return d;
 }
 async function playFav(f, keep = false){
   if (f.kind === 'text') return Dev.ticker(f.text, f.size, f.color, Enc.speedToDelay(f.speed));
@@ -1013,8 +1014,7 @@ function renderFavs(){
   });
 }
 
-</script>
-<script>
+
 /* ---------- Display tab ---------- */
 document.querySelectorAll('[data-cmd]').forEach(b => b.onclick = () => act(() => Dev.cmd(b.dataset.cmd), b.dataset.cmd !== 'clear'));
 let brT;
@@ -1032,8 +1032,7 @@ $('btnEraseId').onclick = () => act(async () => {
   await Dev.erase(Enc.deviceId(t, id)); toast('Erased');
 });
 
-</script>
-<script>
+
 /* ---------- GIF decoder (for iPhone/Safari, which lack ImageDecoder) ---------- */
 function decodeGif(buf){
   const d = new Uint8Array(buf); let p = 0;
@@ -1116,8 +1115,7 @@ async function decodeFile(file){
   return [await createImageBitmap(file)];
 }
 
-</script>
-<script>
+
 /* ---------- Image tab ---------- */
 let imgSource = null, imgFrames = [], imgName = 'Picture', imgRot = 0, imgFlip = false;
 $('imgSlot').value = store.get('nextSlot', 3000);
@@ -1147,10 +1145,9 @@ $('btnUploadImg').onclick = () => act(async () => {
 });
 $('imgFav').onclick = () => { const slot = getInt('imgSlot', 3000); addImageFav(imgName, imgFrames.length > 1 ? 3 : 2, slot, Enc.pixelData(imgFrames, false)); bumpSlot('imgSlot', slot); };
 $('imgToDraw').onclick = () => { Draw.load(imgFrames); $('drawSlot').value = getInt('imgSlot', 3000); document.querySelector('#tabs [data-tab=draw]').click(); };
-drawLED($('imgPreview'), null);
+safe(() => drawLED($('imgPreview'), null), 'image preview');
 
-</script>
-<script>
+
 /* ---------- Draw tab ---------- */
 const dc = $('drawCanvas');
 const Draw = {
@@ -1242,10 +1239,9 @@ $('drawSave').onclick = () => act(async () => {
 });
 $('drawFav').onclick = async () => { const n = await ask('Name this drawing', {input:'My drawing', ok:'Save'}); if (n === null) return;
   addImageFav(n.trim() || 'My drawing', Draw.frames.length > 1 ? 3 : 2, getInt('drawSlot', 3100), Enc.pixelData(Draw.frames, false)); };
-Draw.render(); Draw.renderStrip();
+safe(() => { Draw.render(); Draw.renderStrip(); }, 'draw');
 
-</script>
-<script>
+
 /* ---------- Text tab ---------- */
 let tkColor = 1, tkSize = 1;
 buildSwatches($('tkSwatches'), i => tkColor = i, 1);
@@ -1261,8 +1257,7 @@ $('btnTicker').onclick = () => act(async () => {
 $('tkFav').onclick = () => { const t = $('tkText').value.trim(); if (!t) return toast('Type something first');
   addFav({kind:'text', name:t.slice(0, 40), text:t, color:tkColor, size:tkSize, speed:+$('tkSpeed').value}); };
 
-</script>
-<script>
+
 /* ---------- Emoji maker ---------- */
 let emFrames = [];
 ['😎','❤️','👍','😂','🔥','🎉','🙏','😡','🐶','🍕','⚡','🌈'].forEach(e => {
@@ -1290,10 +1285,9 @@ $('emSend').onclick = () => act(async () => { if (!emFrames.length) return; cons
   await Dev.uploadImage(Enc.deviceId(2, slot), Enc.pixelData(emFrames, false), f => prog('emProg', f)); toast(`Saved to slot ${slot}`); $('emSlot').value = Math.min(4095, slot + 1); });
 $('emFav').onclick = () => { if (!emFrames.length) return; const slot = getInt('emSlot', 3500); addImageFav($('emText').value.trim().slice(0, 20), 2, slot, Enc.pixelData(emFrames, false)); $('emSlot').value = Math.min(4095, slot + 1); };
 $('emToDraw').onclick = () => { if (!emFrames.length) return; Draw.load(emFrames); document.querySelector('#tabs [data-tab=draw]').click(); };
-renderEmoji();
+safe(renderEmoji, 'emoji');
 
-</script>
-<script>
+
 /* ---------- Clock & countdown ---------- */
 let clkColor = 7, cdColor = 2;
 buildSwatches($('clkSwatches'), i => { clkColor = i; renderClock(); }, 7, true);
@@ -1316,7 +1310,7 @@ function clockImage(now = new Date()){
   return px;
 }
 function renderClock(){ if ($('tab-live').classList.contains('active')) drawLED($('clockPreview'), clockImage()); }
-setInterval(renderClock, 1000); renderClock();
+setInterval(() => safe(renderClock, 'clock'), 1000); safe(renderClock, 'clock');
 ['clk24','clkDate','clkSec'].forEach(i => $(i).addEventListener('change', renderClock));
 $('clkStart').onclick = () => act(async () => {
   await Live.reset();
@@ -1347,8 +1341,7 @@ $('cdStart').onclick = () => act(async () => {
   }, () => Date.now() >= end ? 500 : ((end - Date.now()) % 1000) + 10);
 });
 
-</script>
-<script>
+
 /* ---------- Playlist ---------- */
 let playlist = store.get('playlist', []); // fav ids
 function savePl(){ store.set('playlist', playlist); renderPl(); }
@@ -1388,8 +1381,7 @@ $('plStart').onclick = () => act(async () => {
 });
 Runner.onStop = n => { if (n === 'playlist') renderPl(); };
 
-</script>
-<script>
+
 /* ---------- Library (reads the APK in-browser) ---------- */
 const Lib = { items:[], zip:null, thumbs:null, onDevice:new Set(), sel:null };
 async function openZip(file){
@@ -1512,8 +1504,7 @@ $('btnScan').onclick = () => act(async () => {
   } finally { $('btnScan').disabled = false; }
 });
 
-</script>
-<script>
+
 /* ---------- Settings ---------- */
 $('autoOff').value = store.get('autoOff', 0);
 $('autoOffSet').onclick = () => act(async () => { const s = Math.max(0, Math.min(180, getInt('autoOff', 0))); $('autoOff').value = s; store.set('autoOff', s); await Dev.autoOff(s); toast(s ? `Display turns off ${s}s after disconnect` : 'Auto-off disabled'); }, true);
@@ -1539,11 +1530,13 @@ $('bkImport').onchange = async e => {
   e.target.value = '';
 };
 
-</script>
-<script>
+
 /* ---------- start ---------- */
-renderFavs(); refreshPlAdd();
+safe(renderFavs, 'favourites'); safe(refreshPlAdd, 'playlist');
 { const t = store.get('tab', 'favs'); const b = document.querySelector(`#tabs button[data-tab="${t}"]`); b && b.click(); }
+window.__mj = { Draw, clockImage, decodeGif, get imgFrames(){ return imgFrames; }, get emFrames(){ return emFrames; },
+  setPlaylist(v){ playlist = v; savePl(); } };
+})();
 </script>
 </body>
 </html>
