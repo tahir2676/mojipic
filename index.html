@@ -482,6 +482,12 @@ const UUID = {
 // Full 128-bit UUID strings: some browsers (e.g. Bluefy on iPhone) can't parse numeric short UUIDs.
 const uuid16 = n => '0000' + n.toString(16).padStart(4, '0') + '-0000-1000-8000-00805f9b34fb';
 const SERVICES = [0xfff0, 0xffe0, 0x180f, 0x180a].map(uuid16);
+// Normalise any UUID form ("FFF1", "0xfff1", "0000fff1", "0000fff1-0000-1000-8000-00805f9b34fb") to "FFF1"
+const shortUUID = u => { u = String(u).trim().toUpperCase().replace(/^0X/, '');
+  if (/^[0-9A-F]{4}$/.test(u)) return u;
+  if (/^[0-9A-F]{8}$/.test(u)) return u.substring(4, 8);
+  if (/^[0-9A-F]{8}-/.test(u)) return u.substring(4, 8);
+  return u; };
 const errText = e => { if (!e) return 'unknown error'; const t = ((e.name && e.name !== 'Error' ? e.name + ': ' : '') + (e.message || '')).trim(); return t || String(e) || 'unknown error'; };
 const isCancel = e => e && (e.name === 'AbortError' || /cancel/i.test(e.message || ''));
 const CMD = { deviceOn:[2,1], deviceOff:[2,2], screenOn:[2,6,5], screenOff:[2,5], clear:[7,1], last:[7,0] };
@@ -695,16 +701,24 @@ const Dev = {
     try { services = await this.server.getPrimaryServices(); } catch(e){ log('getPrimaryServices(): ' + errText(e)); }
     if (!services || !services.length){ // fallback: ask for each known service by UUID
       services = [];
-      for (const u of SERVICES){ try { services.push(await this.server.getPrimaryService(u)); } catch(e){ log(`service ${u.substring(4,8)}: ${errText(e)}`); } }
+      for (const u of SERVICES){ try { services.push(await this.server.getPrimaryService(u)); } catch(e){ log(`service ${shortUUID(u)}: ${errText(e)}`); } }
     }
+    const found = [];
     for (const s of services){
       let cs = [];
-      try { cs = await s.getCharacteristics(); } catch(e){ log(`service ${s.uuid}: ${e.message}`); }
-      for (const c of cs) this.chars[c.uuid.substring(4,8).toUpperCase()] = c;
-      log(`service ${s.uuid.substring(4,8).toUpperCase()}: ${cs.map(c => c.uuid.substring(4,8).toUpperCase()).join(' ')}`);
+      try { cs = await s.getCharacteristics(); } catch(e){ log(`service ${s.uuid}: getCharacteristics: ${errText(e)}`); }
+      for (const c of cs) this.chars[shortUUID(c.uuid)] = c;
+      found.push(`${shortUUID(s.uuid)}[${cs.map(c => shortUUID(c.uuid)).join(' ')}]`);
+      log(`service ${s.uuid} → ${cs.map(c => c.uuid).join(', ') || 'no characteristics listed'}`);
+    }
+    // Fallback: ask each service for every known characteristic by its full UUID
+    const wanted = Object.values(UUID).filter(u => !this.chars[u]);
+    if (wanted.length) for (const s of services) for (const u of wanted){
+      if (this.chars[u]) continue;
+      try { const c = await s.getCharacteristic(uuid16(parseInt(u, 16))); if (c) { this.chars[u] = c; log(`found ${u} in ${s.uuid} by direct lookup`); } } catch(e){}
     }
     for (const k of ['WRITE_IMAGE','STATUS','SHOW','CTRL','PROC_ID','AUTH'])
-      if (!this.has(k)) throw new Error(`This doesn't look like a Mojipic (missing ${UUID[k]})`);
+      if (!this.has(k)) throw new Error(`This doesn't look like a Mojipic (missing ${UUID[k]}). Found: ${found.join(' ') || 'no services'}`);
     await this.notify('STATUS', b => this.onStatus(b));
     if (this.has('IDS')) { try { await this.notify('IDS', () => { const w = this.idWaiters; this.idWaiters = []; w.forEach(f => f()); }); } catch(e){ log('IDS notify: ' + e.message); } }
 
