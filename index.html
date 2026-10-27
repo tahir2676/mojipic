@@ -110,9 +110,31 @@ canvas.led{background:#000;border-radius:12px;display:block;max-width:100%;heigh
 .pl .it .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
 .pl .it.now{border-color:var(--accent)}
 .empty{color:var(--muted);font-size:14px;padding:6px 0}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
+.modal[hidden]{display:none!important}
+.modal .box{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.modal .msg{font-size:15px;margin-bottom:14px}
+.modal input{width:100%;margin-bottom:14px}
+.modal .row{justify-content:flex-end}
 </style>
+<script>
+window.__errs = [];
+function __showErr(m){
+  window.__errs.push(String(m));
+  var b = document.getElementById('errBox');
+  if (!b){ b = document.createElement('div'); b.id = 'errBox';
+    b.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;z-index:99;background:#5a1010;color:#fff;font:12px/1.45 ui-monospace,Menlo,monospace;padding:10px 12px;border-radius:10px;white-space:pre-wrap;max-height:45vh;overflow:auto;border:1px solid #c33';
+    b.onclick = function(){ b.style.display = 'none'; };
+    (document.body || document.documentElement).appendChild(b); }
+  b.style.display = 'block';
+  b.textContent = 'Page error - please screenshot this (tap to hide):\n' + window.__errs.join('\n') + '\n\n' + navigator.userAgent + '\nBluetooth API: ' + (!!navigator.bluetooth);
+}
+window.addEventListener('error', function(e){ __showErr((e.message || 'error') + ' [line ' + (e.lineno || '?') + ':' + (e.colno || '?') + ']'); });
+window.addEventListener('unhandledrejection', function(e){ var r = e.reason; __showErr('async: ' + (r && (r.stack || r.message) || r)); });
+</script>
 </head>
 <body>
+<div id="modal" class="modal" hidden><div class="box"><div class="msg" id="modalMsg"></div><input type="text" id="modalInput" maxlength="40"><div class="row"><button id="modalCancel" class="ghost">Cancel</button><button id="modalOk" class="primary">OK</button></div></div></div>
 <div class="wrap">
   <header>
     <h1>Mojipic <span>Controller</span></h1>
@@ -837,9 +859,22 @@ const store = {
   get(k, d){ try { const v = localStorage.getItem('mojipic.' + k); return v === null ? d : JSON.parse(v); } catch(e){ return d; } },
   set(k, v){ try { localStorage.setItem('mojipic.' + k, JSON.stringify(v)); return true; } catch(e){ return false; } }
 };
-function slotCheck(slot){
+// In-page replacement for confirm()/prompt() (some iPhone browsers ignore those).
+function ask(message, {input = null, ok = 'OK', danger = false} = {}){
+  return new Promise(res => {
+    const m = $('modal'), inp = $('modalInput'), okB = $('modalOk');
+    $('modalMsg').textContent = message; inp.hidden = input === null; inp.value = input || '';
+    okB.textContent = ok; okB.className = danger ? 'danger' : 'primary'; m.hidden = false;
+    if (input !== null) setTimeout(() => { inp.focus(); inp.select(); }, 50);
+    const done = v => { m.hidden = true; okB.onclick = $('modalCancel').onclick = inp.onkeydown = null; res(v); };
+    okB.onclick = () => done(input === null ? true : inp.value);
+    $('modalCancel').onclick = () => done(input === null ? false : null);
+    inp.onkeydown = e => { if (e.key === 'Enter') okB.onclick(); };
+  });
+}
+async function slotCheck(slot){
   if (slot < 1 || slot > 4095){ toast('Slot must be 1–4095'); return false; }
-  if (slot <= 1997 && !confirm(`Slot ${slot} is a built-in picture id. Overwrite it?`)) return false;
+  if (slot <= 1997 && !(await ask(`Slot ${slot} is a built-in picture id. Overwrite it?`, {ok:'Overwrite', danger:true}))) return false;
   return true;
 }
 function bumpSlot(inputId, slot){ const n = Math.min(4095, slot + 1); store.set('nextSlot', n); ['imgSlot'].forEach(i => { if (i === inputId) $(i).value = n; }); }
@@ -927,6 +962,8 @@ $('tabs').onclick = e => {
   if (b.dataset.tab === 'live'){ refreshPlAdd(); renderClock(); }
 };
 
+</script>
+<script>
 /* ---------- Favourites ---------- */
 const DEFAULT_FAVS = [
   {id:'d1', kind:'text', name:'Thanks!', text:'Thanks!', color:3, size:1, speed:60},
@@ -956,7 +993,7 @@ function renderFavs(){
     const th = document.createElement('div'); th.className = 'thumb'; th.appendChild(favThumb(f)); top.appendChild(th);
     const meta = document.createElement('div'); meta.style.minWidth = '0';
     const nm = document.createElement('div'); nm.className = 'name'; nm.textContent = f.name; nm.title = 'Tap to rename';
-    nm.onclick = () => { const n = prompt('Name', f.name); if (n && n.trim()){ f.name = n.trim().slice(0, 40); saveFavs(); } };
+    nm.onclick = async () => { const n = await ask('Rename favourite', {input:f.name, ok:'Save'}); if (n && n.trim()){ f.name = n.trim().slice(0, 40); saveFavs(); } };
     const sub = document.createElement('div'); sub.className = 'sub';
     sub.textContent = f.kind === 'text' ? 'Message' : `Picture · slot ${f.slot}${Enc.unb64(f.data).length > 3072 ? ' · GIF' : ''}`;
     meta.append(nm, sub); top.appendChild(meta);
@@ -970,12 +1007,14 @@ function renderFavs(){
       acts.appendChild(up);
     }
     const x = document.createElement('button'); x.className = 'x danger'; x.textContent = '✕'; x.title = 'Remove';
-    x.onclick = () => { if (confirm(`Remove "${f.name}" from favourites?`)){ favs.splice(idx, 1); saveFavs(); } };
+    x.onclick = async () => { if (await ask(`Remove "${f.name}" from favourites?`, {ok:'Remove', danger:true})){ favs.splice(favs.indexOf(f), 1); saveFavs(); } };
     acts.appendChild(x);
     card.append(top, acts); el.appendChild(card);
   });
 }
 
+</script>
+<script>
 /* ---------- Display tab ---------- */
 document.querySelectorAll('[data-cmd]').forEach(b => b.onclick = () => act(() => Dev.cmd(b.dataset.cmd), b.dataset.cmd !== 'clear'));
 let brT;
@@ -989,10 +1028,12 @@ $('modeTimed').onclick = () => act(() => Dev.screenMode('timed', getInt('modeSec
 $('btnShowId').onclick = () => act(() => Dev.show(Enc.deviceId(+$('showType').value, getInt('showId', 0))));
 $('btnEraseId').onclick = () => act(async () => {
   const id = getInt('showId', 0), t = +$('showType').value;
-  if (!confirm(`Erase picture ${id} (type ${t}) from the display?`)) return;
+  if (!(await ask(`Erase picture ${id} (type ${t}) from the display?`, {ok:'Erase', danger:true}))) return;
   await Dev.erase(Enc.deviceId(t, id)); toast('Erased');
 });
 
+</script>
+<script>
 /* ---------- GIF decoder (for iPhone/Safari, which lack ImageDecoder) ---------- */
 function decodeGif(buf){
   const d = new Uint8Array(buf); let p = 0;
@@ -1075,6 +1116,8 @@ async function decodeFile(file){
   return [await createImageBitmap(file)];
 }
 
+</script>
+<script>
 /* ---------- Image tab ---------- */
 let imgSource = null, imgFrames = [], imgName = 'Picture', imgRot = 0, imgFlip = false;
 $('imgSlot').value = store.get('nextSlot', 3000);
@@ -1094,7 +1137,7 @@ $('imgFile').onchange = async e => {
 $('imgRot').onclick = () => { imgRot = (imgRot + 1) % 4; renderImg(); };
 $('imgFlip').onclick = () => { imgFlip = !imgFlip; renderImg(); };
 $('btnUploadImg').onclick = () => act(async () => {
-  const slot = getInt('imgSlot', 3000); if (!slotCheck(slot)) return;
+  const slot = getInt('imgSlot', 3000); if (!(await slotCheck(slot))) return;
   const type = imgFrames.length > 1 ? 3 : 2;
   $('btnUploadImg').disabled = true;
   try {
@@ -1106,6 +1149,8 @@ $('imgFav').onclick = () => { const slot = getInt('imgSlot', 3000); addImageFav(
 $('imgToDraw').onclick = () => { Draw.load(imgFrames); $('drawSlot').value = getInt('imgSlot', 3000); document.querySelector('#tabs [data-tab=draw]').click(); };
 drawLED($('imgPreview'), null);
 
+</script>
+<script>
 /* ---------- Draw tab ---------- */
 const dc = $('drawCanvas');
 const Draw = {
@@ -1191,14 +1236,16 @@ $('frPlay').onclick = () => {
 $('drawLive').onchange = e => { if (e.target.checked) act(async () => { await Live.reset(); await Live.push(Draw.px); }); };
 $('drawClear').onclick = () => { Draw.snapshot(); Draw.px.fill(0); Draw.render(); Draw.renderStrip(); Draw.syncLive(); };
 $('drawSave').onclick = () => act(async () => {
-  const slot = getInt('drawSlot', 3100); if (!slotCheck(slot)) return;
+  const slot = getInt('drawSlot', 3100); if (!(await slotCheck(slot))) return;
   await Dev.uploadImage(Enc.deviceId(Draw.frames.length > 1 ? 3 : 2, slot), Enc.pixelData(Draw.frames, false), f => prog('drawProg', f));
   toast(`Saved to slot ${slot}`);
 });
-$('drawFav').onclick = () => { const n = prompt('Name this drawing', 'My drawing'); if (n === null) return;
+$('drawFav').onclick = async () => { const n = await ask('Name this drawing', {input:'My drawing', ok:'Save'}); if (n === null) return;
   addImageFav(n.trim() || 'My drawing', Draw.frames.length > 1 ? 3 : 2, getInt('drawSlot', 3100), Enc.pixelData(Draw.frames, false)); };
 Draw.render(); Draw.renderStrip();
 
+</script>
+<script>
 /* ---------- Text tab ---------- */
 let tkColor = 1, tkSize = 1;
 buildSwatches($('tkSwatches'), i => tkColor = i, 1);
@@ -1214,6 +1261,8 @@ $('btnTicker').onclick = () => act(async () => {
 $('tkFav').onclick = () => { const t = $('tkText').value.trim(); if (!t) return toast('Type something first');
   addFav({kind:'text', name:t.slice(0, 40), text:t, color:tkColor, size:tkSize, speed:+$('tkSpeed').value}); };
 
+</script>
+<script>
 /* ---------- Emoji maker ---------- */
 let emFrames = [];
 ['😎','❤️','👍','😂','🔥','🎉','🙏','😡','🐶','🍕','⚡','🌈'].forEach(e => {
@@ -1237,12 +1286,14 @@ function renderEmoji(){
   drawLED($('emPreview'), emFrames[0]);
 }
 ['emText','emScale','emBg'].forEach(i => $(i).addEventListener('input', renderEmoji));
-$('emSend').onclick = () => act(async () => { if (!emFrames.length) return; const slot = getInt('emSlot', 3500); if (!slotCheck(slot)) return;
+$('emSend').onclick = () => act(async () => { if (!emFrames.length) return; const slot = getInt('emSlot', 3500); if (!(await slotCheck(slot))) return;
   await Dev.uploadImage(Enc.deviceId(2, slot), Enc.pixelData(emFrames, false), f => prog('emProg', f)); toast(`Saved to slot ${slot}`); $('emSlot').value = Math.min(4095, slot + 1); });
 $('emFav').onclick = () => { if (!emFrames.length) return; const slot = getInt('emSlot', 3500); addImageFav($('emText').value.trim().slice(0, 20), 2, slot, Enc.pixelData(emFrames, false)); $('emSlot').value = Math.min(4095, slot + 1); };
 $('emToDraw').onclick = () => { if (!emFrames.length) return; Draw.load(emFrames); document.querySelector('#tabs [data-tab=draw]').click(); };
 renderEmoji();
 
+</script>
+<script>
 /* ---------- Clock & countdown ---------- */
 let clkColor = 7, cdColor = 2;
 buildSwatches($('clkSwatches'), i => { clkColor = i; renderClock(); }, 7, true);
@@ -1296,6 +1347,8 @@ $('cdStart').onclick = () => act(async () => {
   }, () => Date.now() >= end ? 500 : ((end - Date.now()) % 1000) + 10);
 });
 
+</script>
+<script>
 /* ---------- Playlist ---------- */
 let playlist = store.get('playlist', []); // fav ids
 function savePl(){ store.set('playlist', playlist); renderPl(); }
@@ -1335,6 +1388,8 @@ $('plStart').onclick = () => act(async () => {
 });
 Runner.onStop = n => { if (n === 'playlist') renderPl(); };
 
+</script>
+<script>
 /* ---------- Library (reads the APK in-browser) ---------- */
 const Lib = { items:[], zip:null, thumbs:null, onDevice:new Set(), sel:null };
 async function openZip(file){
@@ -1457,6 +1512,8 @@ $('btnScan').onclick = () => act(async () => {
   } finally { $('btnScan').disabled = false; }
 });
 
+</script>
+<script>
 /* ---------- Settings ---------- */
 $('autoOff').value = store.get('autoOff', 0);
 $('autoOffSet').onclick = () => act(async () => { const s = Math.max(0, Math.min(180, getInt('autoOff', 0))); $('autoOff').value = s; store.set('autoOff', s); await Dev.autoOff(s); toast(s ? `Display turns off ${s}s after disconnect` : 'Auto-off disabled'); }, true);
@@ -1482,6 +1539,8 @@ $('bkImport').onchange = async e => {
   e.target.value = '';
 };
 
+</script>
+<script>
 /* ---------- start ---------- */
 renderFavs(); refreshPlAdd();
 { const t = store.get('tab', 'favs'); const b = document.querySelector(`#tabs button[data-tab="${t}"]`); b && b.click(); }
