@@ -479,7 +479,11 @@ const UUID = {
   TIMEOUT:'FFF8', BRIGHT:'FFF9', REALTIME:'FFFB', TETRIS:'FFFC', PROC_ID:'FFFD',
   TICKER:'FFE0', BLE_POWER:'FFE1', AUTH:'FFE2', BATTERY:'2A19', FIRMWARE:'2A26'
 };
-const SERVICES = [0xfff0, 0xffe0, 0x180f, 0x180a];
+// Full 128-bit UUID strings: some browsers (e.g. Bluefy on iPhone) can't parse numeric short UUIDs.
+const uuid16 = n => '0000' + n.toString(16).padStart(4, '0') + '-0000-1000-8000-00805f9b34fb';
+const SERVICES = [0xfff0, 0xffe0, 0x180f, 0x180a].map(uuid16);
+const errText = e => { if (!e) return 'unknown error'; const t = ((e.name && e.name !== 'Error' ? e.name + ': ' : '') + (e.message || '')).trim(); return t || String(e) || 'unknown error'; };
+const isCancel = e => e && (e.name === 'AbortError' || /cancel/i.test(e.message || ''));
 const CMD = { deviceOn:[2,1], deviceOff:[2,2], screenOn:[2,6,5], screenOff:[2,5], clear:[7,1], last:[7,0] };
 const STATUS_BITS = {1:'WRITE_BLOCK_SUCCESS',2:'WRITE_BLOCK_ERROR',4:'FLASH_READY',8:'FLASH_NOT_READY',16:'SLAVE_MCU_READY',32:'IMAGE_ID_READY',64:'WRITE_IMAGE_SUCCESS',128:'SLAVE_MCU_ON'};
 // Character -> device font code, extracted by running the app's TickerCalculator.
@@ -662,10 +666,22 @@ const Dev = {
 
   async connect(all = false){
     if (!navigator.bluetooth) throw new Error('Web Bluetooth is not available in this browser');
+    if (navigator.bluetooth.getAvailability){
+      try { if (!(await navigator.bluetooth.getAvailability())) throw new Error('Bluetooth is off, or this browser has no Bluetooth permission (iPhone: Settings → Privacy & Security → Bluetooth)'); }
+      catch(e){ if (/permission|off/.test(e.message)) throw e; }
+    }
     setStatus('busy', 'Choose your Mojipic…');
-    this.device = await navigator.bluetooth.requestDevice(all
-      ? {acceptAllDevices:true, optionalServices:SERVICES}
-      : {filters:[{namePrefix:'Mojipic'},{services:[0xfff0]}], optionalServices:SERVICES});
+    const attempts = all ? [{acceptAllDevices:true, optionalServices:SERVICES}] : [
+      {filters:[{namePrefix:'Mojipic'}, {services:[SERVICES[0]]}], optionalServices:SERVICES},
+      {filters:[{namePrefix:'Mojipic'}], optionalServices:SERVICES},
+      {filters:[{name:'Mojipic'}], optionalServices:SERVICES},
+    ];
+    this.device = null; let lastErr = null;
+    for (const opts of attempts){
+      try { this.device = await navigator.bluetooth.requestDevice(opts); break; }
+      catch(e){ lastErr = e; if (isCancel(e)) throw e; log('requestDevice attempt failed: ' + errText(e)); }
+    }
+    if (!this.device) throw lastErr || new Error('No device selected');
     this.device.addEventListener('gattserverdisconnected', () => this.onDisconnected());
     this.userDisconnect = false;
     await this.setup();
@@ -675,7 +691,12 @@ const Dev = {
     log(`Connecting to "${this.device.name || 'unnamed'}"`);
     this.server = await this.device.gatt.connect();
     this.chars = {}; this.queue = Promise.resolve(); this.statusWaiters = []; this.idWaiters = [];
-    const services = await this.server.getPrimaryServices();
+    let services = [];
+    try { services = await this.server.getPrimaryServices(); } catch(e){ log('getPrimaryServices(): ' + errText(e)); }
+    if (!services || !services.length){ // fallback: ask for each known service by UUID
+      services = [];
+      for (const u of SERVICES){ try { services.push(await this.server.getPrimaryService(u)); } catch(e){ log(`service ${u.substring(4,8)}: ${errText(e)}`); } }
+    }
     for (const s of services){
       let cs = [];
       try { cs = await s.getCharacteristics(); } catch(e){ log(`service ${s.uuid}: ${e.message}`); }
@@ -949,7 +970,7 @@ safe(() => applyTheme(store.get('theme', 'auto')), 'theme');
 if (!navigator.bluetooth) $('noBt').classList.remove('hide');
 async function doConnect(all){
   try { await Dev.connect(all); }
-  catch(e){ log('Connect failed: ' + e.message); setStatus('', 'Not connected'); if (!/cancel/i.test(e.message)) toast(e.message);
+  catch(e){ log('Connect failed: ' + errText(e)); setStatus('', 'Not connected'); if (!isCancel(e)) toast('Could not connect: ' + errText(e));
     if (Dev.device && Dev.device.gatt && Dev.device.gatt.connected){ Dev.userDisconnect = true; Dev.device.gatt.disconnect(); } }
 }
 $('btnConnect').onclick = () => doConnect(false);
