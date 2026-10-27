@@ -149,6 +149,7 @@ window.addEventListener('unhandledrejection', function(e){ var r = e.reason; __s
     This browser can't use Bluetooth. On iPhone use the free <b>Bluefy</b> browser; elsewhere use <b>Chrome</b> or <b>Edge</b>.
     The page must be opened over <b>https://</b> (or as a local file on desktop).
   </div>
+  <div id="upBar" class="runner"><i class="dot" style="background:var(--accent);animation:pulse 1s infinite"></i><span id="upText" class="grow">Uploading…</span><button id="upCancel" class="sm danger">Cancel</button></div>
   <div id="runner" class="runner"><i class="dot" style="background:var(--accent);animation:pulse 1s infinite"></i><span id="runnerText" class="grow"></span><button id="runnerStop" class="sm">Stop</button></div>
 
   <nav class="tabs" id="tabs">
@@ -232,7 +233,9 @@ window.addEventListener('unhandledrejection', function(e){ var r = e.reason; __s
               <select id="imgFit"><option value="contain">Fit (letterbox)</option><option value="cover">Fill (crop)</option><option value="stretch">Stretch</option></select>
             </label>
             <label class="f">Slot id <input type="number" id="imgSlot" min="2000" max="4095" value="3000" style="width:100px"></label>
+            <label class="f">GIF frames <select id="imgMaxFr"><option value="20">Up to 20</option><option value="12">12</option><option value="8">8</option><option value="6">6</option><option value="4">4</option><option value="1">1 (still)</option></select></label>
           </div>
+          <p class="hint" id="imgEst"></p>
           <div class="row">
             <button class="sm" id="imgRot">↻ Rotate</button>
             <button class="sm" id="imgFlip">⇋ Flip</button>
@@ -333,8 +336,14 @@ window.addEventListener('unhandledrejection', function(e){ var r = e.reason; __s
       <div class="split">
         <canvas id="emPreview" class="led" width="256" height="256"></canvas>
         <div>
-          <div class="row"><input type="text" id="emText" value="😎" placeholder="Paste or type an emoji" style="flex:1;font-size:22px"></div>
-          <div class="row" id="emQuick"></div>
+          <div class="row"><input type="text" id="emText" value="😂" placeholder="Paste or type an emoji" style="flex:1;min-width:0;width:100%;font-size:22px"></div>
+          <div id="emQuick"></div>
+          <div class="row">
+            <label class="i">Animate <select id="emAnim">
+              <option value="none">None (still)</option><option value="bounce">Bounce</option><option value="shake">Shake</option>
+              <option value="spin">Spin</option><option value="pulse">Pulse / heartbeat</option><option value="wiggle">Wiggle</option><option value="flip">Flip</option>
+            </select></label>
+          </div>
           <div class="row">
             <label class="i" style="flex:1;min-width:160px">Size <input type="range" id="emScale" min="60" max="130" value="100"></label>
             <label class="i">Background <input type="color" id="emBg" value="#000000"></label>
@@ -402,11 +411,12 @@ window.addEventListener('unhandledrejection', function(e){ var r = e.reason; __s
     <div class="card">
       <h2>Built-in library</h2>
       <div class="row">
-        <label class="btn" for="apkFile">Load from Mojipic APK…</label>
-        <input type="file" id="apkFile" accept=".apk,.zip,application/vnd.android.package-archive">
+        <label class="btn" for="apkFile">Load library…</label>
+        <input type="file" id="apkFile" accept=".apk,.zip,.json,application/json,application/vnd.android.package-archive">
         <button id="btnScan" disabled>Scan what's on the display</button>
+        <button id="libForget" class="ghost sm" hidden>Forget library</button>
       </div>
-      <p class="hint" id="libInfo">Reads the ~1,900 emojis and GIFs straight from your copy of the app, in this browser.</p>
+      <p class="hint" id="libInfo">Load your Mojipic APK or library pack once; it's remembered in this browser. Pictures stay on your phone.</p>
       <div class="row"><div class="progress grow"><i id="libProg"></i></div></div>
       <div class="row" id="libControls" hidden>
         <input type="search" id="libSearch" placeholder="Search…" style="flex:1;min-width:140px">
@@ -437,6 +447,12 @@ window.addEventListener('unhandledrejection', function(e){ var r = e.reason; __s
     <div class="card">
       <h2>Appearance</h2>
       <div class="seg" id="themeSeg"><button data-theme="auto">Auto</button><button data-theme="dark">Dark</button><button data-theme="light">Light</button></div>
+    </div>
+    <div class="card">
+      <h2>Upload speed</h2>
+      <div class="seg" id="upModeSeg"><button data-mode="safe">Safe</button><button data-mode="fast">Fast (experimental)</button></div>
+      <p class="hint" id="upModeHint">Safe waits for the display to confirm every 16-byte piece, like the original app. Fast only pauses when the display says it's busy. If a picture comes out scrambled in Fast mode, switch back to Safe.</p>
+      <p class="hint kv" id="upRateTxt"></p>
     </div>
     <div class="card">
       <h2>Display auto-off</h2>
@@ -488,6 +504,9 @@ const shortUUID = u => { u = String(u).trim().toUpperCase().replace(/^0X/, '');
   if (/^[0-9A-F]{8}$/.test(u)) return u.substring(4, 8);
   if (/^[0-9A-F]{8}-/.test(u)) return u.substring(4, 8);
   return u; };
+const fmtSecs = s => s > 90 ? Math.ceil(s / 60) + ' min' : Math.max(1, Math.ceil(s)) + ' s';
+// rough upload-time estimate from the last measured speed (packets/s)
+const estUpload = frames => fmtSecs(frames * 192 / (store.get('upRate', 0) || 15));
 const errText = e => { if (!e) return 'unknown error'; const t = ((e.name && e.name !== 'Error' ? e.name + ': ' : '') + (e.message || '')).trim(); return t || String(e) || 'unknown error'; };
 const isCancel = e => e && (e.name === 'AbortError' || /cancel/i.test(e.message || ''));
 const CMD = { deviceOn:[2,1], deviceOff:[2,2], screenOn:[2,6,5], screenOff:[2,5], clear:[7,1], last:[7,0] };
@@ -780,15 +799,39 @@ const Dev = {
   },
   show(devId){ return this.write('SHOW', Enc.idLE(devId), true); },
   erase(devId){ return this.write('ERASE', Enc.idLE(devId)); },
+  uploading:false, abortUpload:false,
   async uploadImage(devId, data, onProgress){
+    // Only one upload at a time: two interleaved uploads fight over the display's ready signals and corrupt the picture.
+    if (this.uploading) throw new Error('An upload is already running. Wait for it, or tap Cancel.');
+    this.uploading = true; this.abortUpload = false;
+    const bar = document.getElementById('upBar'), txt = document.getElementById('upText'), t0 = Date.now();
+    bar.classList.add('show'); txt.textContent = 'Uploading…';
+    const userProg = onProgress;
+    onProgress = f => {
+      userProg && userProg(f);
+      const el = (Date.now() - t0) / 1000, left = f > 0.02 ? Math.max(0, el / f - el) : null;
+      txt.textContent = `Uploading ${Math.floor(f * 100)}%` + (left === null ? '' : ` · about ${fmtSecs(left)} left`);
+    };
+    try { await this._upload(devId, data, onProgress); }
+    finally { this.uploading = false; bar.classList.remove('show'); }
+  },
+  async _upload(devId, data, onProgress){
     const frames = data.length / 3072, total = frames * 192;
     log(`Uploading id 0x${devId.toString(16)} (${frames} frame${frames>1?'s':''})`);
     this.statusFresh = true; this.status = 1; // the app treats the first block as ready
+    const fast = store.get('upMode', 'safe') === 'fast', t0 = Date.now();
     let done = 0, misses = 0, blind = false;
     for (let f = 0; f < frames; f++){
       for (let i = 0; i < 192; i++){
         if (!this.connected) throw new Error('Connection lost during upload');
-        if (!blind){
+        if (this.abortUpload) throw new Error('Upload cancelled');
+        if (fast){
+          // Fast (experimental): rely on the write acknowledgement; only pause when the display reports it is busy or failed.
+          if ((this.status & 8) || (this.status & 2)){
+            log(`Display busy (status 0x${this.status.toString(16)}) at frame ${f} block ${i}, waiting`);
+            try { await this.waitStatus(s => (s & 1) || (s & 4), 3000); } catch(e){}
+          }
+        } else if (!blind){
           try { await this.waitStatus(s => (s & 1) || (s & 4), 3000); misses = 0; }
           catch(e){
             log(`No ready signal before frame ${f} block ${i}`);
@@ -800,9 +843,11 @@ const Dev = {
       }
     }
     if (!blind) { try { await this.waitStatus(s => (s & 1) || (s & 4) || (s & 64), 2500); } catch(e){} }
+    const secs = (Date.now() - t0) / 1000, rate = total / Math.max(secs, 0.001);
+    store.set('upRate', Math.round(rate * 10) / 10);
+    log(`Upload complete: ${total} packets in ${secs.toFixed(1)} s (${rate.toFixed(1)} packets/s, ${fast ? 'Fast' : 'Safe'} mode)`);
     await sleep(100);
     await this.show(devId);
-    log('Upload complete');
   },
   async ticker(text, sizeIdx, colorIdx, delay){
     const codes = Enc.tickerCodes(text).slice(0, 255);
@@ -876,7 +921,7 @@ Dev.onReady.push(() => { if (Runner.name === 'clock' || Runner.name === 'countdo
 const $ = id => document.getElementById(id);
 function setStatus(cls, text){ const s = $('status'); s.className = 'pill ' + cls; $('statusText').textContent = text;
   $('btnConnect').hidden = $('btnConnectAll').hidden = cls !== ''; $('btnDisconnect').hidden = cls === '';
-  $('btnScan').disabled = !(cls === 'on' && Lib.items.length); }
+  $('btnScan').disabled = cls !== 'on'; }
 // act(): run a device action; stops any background activity unless keep=true
 async function act(fn, keep = false){
   if (!Dev.connected){ toast('Connect to your Mojipic first'); return; }
@@ -991,6 +1036,7 @@ $('btnConnect').onclick = () => doConnect(false);
 $('btnConnectAll').onclick = () => doConnect(true);
 $('btnDisconnect').onclick = () => { Runner.stop(); Dev.disconnect(); };
 $('runnerStop').onclick = () => Runner.stop();
+$('upCancel').onclick = () => { Dev.abortUpload = true; $('upText').textContent = 'Cancelling…'; };
 $('tabs').onclick = e => {
   const b = e.target.closest('button'); if (!b) return;
   document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('active', x === b));
@@ -1132,7 +1178,8 @@ function decodeGif(buf){
   }
   return frames;
 }
-const sample20 = all => { const n = all.length; return n <= 20 ? all : [...Array(20).keys()].map(i => all[Math.round(i * (n-1) / 19)]); };
+const sampleN = (all, m) => { const n = all.length; if (n <= m) return all; if (m <= 1) return [all[0]]; return [...Array(m).keys()].map(i => all[Math.round(i * (n-1) / (m-1))]); };
+const sample20 = all => sampleN(all, 20);
 async function decodeFile(file){
   if (!('ImageDecoder' in window) && (/gif/i.test(file.type) || /\.gif$/i.test(file.name))){
     try { const all = decodeGif(await file.arrayBuffer()); if (all.length) return sample20(all); }
@@ -1156,9 +1203,12 @@ let imgSource = null, imgFrames = [], imgName = 'Picture', imgRot = 0, imgFlip =
 $('imgSlot').value = store.get('nextSlot', 3000);
 function renderImg(){
   const fit = $('imgFit').value, opts = {rot:imgRot, flip:imgFlip, bright:+$('imgBright').value, sat:+$('imgSat').value/100};
-  imgFrames = imgSource ? imgSource.map(f => to32(f, f.displayWidth || f.width, f.displayHeight || f.height, fit, opts)) : [];
+  const src = imgSource ? sampleN(imgSource, +$('imgMaxFr').value) : [];
+  imgFrames = src.map(f => to32(f, f.displayWidth || f.width, f.displayHeight || f.height, fit, opts));
+  $('imgEst').textContent = imgFrames.length ? `${imgFrames.length} frame${imgFrames.length > 1 ? 's' : ''} · upload takes about ${estUpload(imgFrames.length)}` + (imgSource.length > imgFrames.length ? ` (${imgSource.length} in the file; fewer frames = faster)` : '') : '';
   animate($('imgPreview'), imgFrames);
   ['btnUploadImg','imgFav','imgToDraw'].forEach(i => $(i).disabled = !imgFrames.length);
+  if (Dev.uploading) $('btnUploadImg').disabled = true;
 }
 $('imgFile').onchange = async e => {
   const f = e.target.files[0]; if (!f) return;
@@ -1166,7 +1216,9 @@ $('imgFile').onchange = async e => {
     $('imgInfo').textContent = `${f.name} · ${imgSource.length} frame${imgSource.length>1?'s':''}`; renderImg(); }
   catch(err){ toast('Could not read that image'); log(err.message); }
 };
-['imgFit','imgBright','imgSat'].forEach(i => $(i).addEventListener('input', renderImg));
+$('imgMaxFr').value = String(store.get('maxFr', 20));
+$('imgMaxFr').addEventListener('change', () => store.set('maxFr', +$('imgMaxFr').value));
+['imgFit','imgBright','imgSat','imgMaxFr'].forEach(i => $(i).addEventListener('input', renderImg));
 $('imgRot').onclick = () => { imgRot = (imgRot + 1) % 4; renderImg(); };
 $('imgFlip').onclick = () => { imgFlip = !imgFlip; renderImg(); };
 $('btnUploadImg').onclick = () => act(async () => {
@@ -1295,14 +1347,42 @@ $('tkFav').onclick = () => { const t = $('tkText').value.trim(); if (!t) return 
 
 /* ---------- Emoji maker ---------- */
 let emFrames = [];
-['😎','❤️','👍','😂','🔥','🎉','🙏','😡','🐶','🍕','⚡','🌈'].forEach(e => {
-  const b = document.createElement('button'); b.className = 'sm'; b.textContent = e; b.style.fontSize = '18px';
-  b.onclick = () => { $('emText').value = e; renderEmoji(); }; $('emQuick').appendChild(b);
+const EMOJI_SETS = {
+  'Funny':     ['😂','🤣','💩','🤡','🤪','😜','🥴','🤯','🙃','😏','🫠','🤓','🥸','👻','👽','🤖','💀','🙈','🐸','🦄'],
+  'Reactions': ['👍','👎','👏','🙏','🤦','🤷','👀','💯','🔥','🎉','😎','😡','😭','😱','🥳','😴','🤔','🤐','✌️','👋'],
+  'Love':      ['❤️','😍','😘','🥰','💖','💔','💕','🌹','💋','😻'],
+  'Driving':   ['🚗','🚕','🏎️','🛑','⚠️','🚦','🐢','🚀','⛽','🅿️'],
+  'Fun stuff': ['🍕','🍔','🍩','☕','🍺','🎮','⚽','🏏','🎵','🌈','⚡','⭐','🌙','☀️','🐶','🐱','🐼','🦖','🎂','🎁'],
+};
+Object.entries(EMOJI_SETS).forEach(([label, list]) => {
+  const head = document.createElement('div'); head.className = 'hint'; head.textContent = label; head.style.margin = '10px 0 6px';
+  const row = document.createElement('div'); row.className = 'swatches';
+  list.forEach(e => { const b = document.createElement('button'); b.className = 'sm'; b.textContent = e; b.style.cssText = 'font-size:20px;padding:4px 7px';
+    b.onclick = () => { $('emText').value = e; renderEmoji(); }; row.appendChild(b); });
+  $('emQuick').append(head, row);
 });
+// Turn a 256x256 transparent drawing into 32x32 frames with a fun motion
+function emojiFrames(src, bg, anim){
+  const N = anim === 'none' ? 1 : 6, out = [];
+  for (let k = 0; k < N; k++){
+    const t = k / N, TAU = Math.PI * 2; let dx = 0, dy = 0, rot = 0, sx = 1, sy = 1;
+    if (anim === 'bounce'){ dy = -Math.abs(Math.sin(t * Math.PI)) * 6 + 2; sy = k === 0 ? 0.9 : 1; sx = k === 0 ? 1.08 : 1; }
+    if (anim === 'shake') dx = [0, -3, 3, -3, 3, 0][k];
+    if (anim === 'spin') rot = t * TAU;
+    if (anim === 'pulse'){ const s = [0.82, 1.0, 0.9, 1.05, 0.86, 0.82][k]; sx = sy = s; }
+    if (anim === 'wiggle') rot = Math.sin(t * TAU) * 0.35;
+    if (anim === 'flip') sx = Math.cos(t * TAU);
+    wctx.save(); wctx.setTransform(1, 0, 0, 1, 0, 0); wctx.fillStyle = bg; wctx.fillRect(0, 0, 32, 32);
+    wctx.imageSmoothingEnabled = true; wctx.imageSmoothingQuality = 'high';
+    wctx.translate(16 + dx, 16 + dy); wctx.rotate(rot); wctx.scale(sx || 0.05, sy);
+    wctx.drawImage(src, -16, -16, 32, 32); wctx.restore();
+    out.push(wctx.getImageData(0, 0, 32, 32).data.slice());
+  }
+  return out;
+}
 function renderEmoji(){
   const t = $('emText').value.trim(); if (!t){ emFrames = []; drawLED($('emPreview'), null); return; }
   const c = document.createElement('canvas'); c.width = c.height = 256; const x = c.getContext('2d');
-  x.fillStyle = $('emBg').value; x.fillRect(0, 0, 256, 256);
   const font = sz => `${sz}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif`;
   x.font = font(200); const m = x.measureText(t);
   const w = (m.actualBoundingBoxLeft + m.actualBoundingBoxRight) || m.width, h = (m.actualBoundingBoxAscent + m.actualBoundingBoxDescent) || 200;
@@ -1312,13 +1392,13 @@ function renderEmoji(){
   const left = 128 - ((m2.actualBoundingBoxRight || m2.width) - (m2.actualBoundingBoxLeft || 0)) / 2;
   const base = 128 + ((m2.actualBoundingBoxAscent || sz*0.8) - (m2.actualBoundingBoxDescent || 0)) / 2;
   x.fillText(t, left, base);
-  emFrames = [to32(c, 256, 256, 'stretch', {bg:$('emBg').value})];
-  drawLED($('emPreview'), emFrames[0]);
+  emFrames = emojiFrames(c, $('emBg').value, $('emAnim').value);
+  animate($('emPreview'), emFrames);
 }
-['emText','emScale','emBg'].forEach(i => $(i).addEventListener('input', renderEmoji));
+['emText','emScale','emBg','emAnim'].forEach(i => $(i).addEventListener('input', renderEmoji));
 $('emSend').onclick = () => act(async () => { if (!emFrames.length) return; const slot = getInt('emSlot', 3500); if (!(await slotCheck(slot))) return;
-  await Dev.uploadImage(Enc.deviceId(2, slot), Enc.pixelData(emFrames, false), f => prog('emProg', f)); toast(`Saved to slot ${slot}`); $('emSlot').value = Math.min(4095, slot + 1); });
-$('emFav').onclick = () => { if (!emFrames.length) return; const slot = getInt('emSlot', 3500); addImageFav($('emText').value.trim().slice(0, 20), 2, slot, Enc.pixelData(emFrames, false)); $('emSlot').value = Math.min(4095, slot + 1); };
+  await Dev.uploadImage(Enc.deviceId(emFrames.length > 1 ? 3 : 2, slot), Enc.pixelData(emFrames, false), f => prog('emProg', f)); toast(`Saved to slot ${slot}`); $('emSlot').value = Math.min(4095, slot + 1); });
+$('emFav').onclick = () => { if (!emFrames.length) return; const slot = getInt('emSlot', 3500); addImageFav($('emText').value.trim().slice(0, 20) + ($('emAnim').value !== 'none' ? ' ' + $('emAnim').value : ''), emFrames.length > 1 ? 3 : 2, slot, Enc.pixelData(emFrames, false)); $('emSlot').value = Math.min(4095, slot + 1); };
 $('emToDraw').onclick = () => { if (!emFrames.length) return; Draw.load(emFrames); document.querySelector('#tabs [data-tab=draw]').click(); };
 safe(renderEmoji, 'emoji');
 
@@ -1417,8 +1497,8 @@ $('plStart').onclick = () => act(async () => {
 Runner.onStop = n => { if (n === 'playlist') renderPl(); };
 
 
-/* ---------- Library (reads the APK in-browser) ---------- */
-const Lib = { items:[], zip:null, thumbs:null, onDevice:new Set(), sel:null };
+/* ---------- Library (APK or library pack; remembered in this browser) ---------- */
+const Lib = { items:[], atlas:null, actx:null, cols:64, onDevice:new Set(), sel:null };
 async function openZip(file){
   const buf = new Uint8Array(await file.arrayBuffer()), dv = new DataView(buf.buffer);
   let e = buf.length - 22; while (e >= 0 && dv.getUint32(e, true) !== 0x06054b50) e--;
@@ -1445,63 +1525,108 @@ async function openZip(file){
   };
 }
 const natKey = s => s.split(/(\d+)/).map(t => /^\d+$/.test(t) ? t.padStart(8,'0') : t).join('');
-async function decodeFrame(path){
-  const bmp = await createImageBitmap(new Blob([await Lib.zip.read(path)]));
-  wctx.fillStyle = '#000'; wctx.fillRect(0,0,32,32); wctx.imageSmoothingEnabled = false;
-  wctx.drawImage(bmp, 0, 0, 32, 32, 0, 0, 32, 32);
-  return wctx.getImageData(0, 0, 32, 32).data.slice();
+const libType = (id, name, n) => (id > 237 && !name.includes('(8bit)')) ? (n > 1 ? 1 : 0) : (n > 1 ? 3 : 2);
+function newAtlas(w, h){ const c = document.createElement('canvas'); c.width = w; c.height = h; Lib.atlas = c; Lib.actx = c.getContext('2d', {willReadFrequently:true}); Lib.actx.fillStyle = '#000'; Lib.actx.fillRect(0, 0, w, h); }
+const atlasXY = i => [(i % Lib.cols) * 32, Math.floor(i / Lib.cols) * 32];
+function libFrames(it){ if (!it.px) it.px = [...Array(it.n).keys()].map(k => { const [x, y] = atlasXY(it.start + k); return Lib.actx.getImageData(x, y, 32, 32).data.slice(); }); return it.px; }
+
+async function libFromApk(file){
+  $('libInfo').textContent = 'Reading APK…'; prog('libProg', 0.02);
+  const zip = await openZip(file), groups = new Map();
+  for (const name of zip.entries.keys()){
+    const m = name.match(/^assets\/categories\/([^/]+)\/(\d+)_([^/]+)\/([^/]+\.(?:bmp|jpg|jpeg|png))$/i);
+    if (!m) continue;
+    const key = m[1] + '/' + m[2] + '_' + m[3];
+    if (!groups.has(key)) groups.set(key, {cat:m[1], id:+m[2], name:m[3], files:[]});
+    groups.get(key).files.push(name);
+  }
+  if (!groups.size) throw new Error('No Mojipic picture library found in that file');
+  let start = 0; const jobs = [];
+  const items = [...groups.values()].map(g => {
+    g.files.sort((a, b) => natKey(a) < natKey(b) ? -1 : 1);
+    const it = {id:g.id, name:g.name, cat:g.cat, start, n:g.files.length, type:libType(g.id, g.name, g.files.length)};
+    g.files.forEach((f, k) => jobs.push([start + k, f])); start += it.n; return it;
+  });
+  Lib.cols = 64; newAtlas(64 * 32, Math.ceil(start / 64) * 32);
+  for (let i = 0; i < jobs.length; i += 24){
+    await Promise.all(jobs.slice(i, i + 24).map(async ([idx, f]) => {
+      try { const bmp = await createImageBitmap(new Blob([await zip.read(f)])); const [x, y] = atlasXY(idx); Lib.actx.drawImage(bmp, 0, 0, 32, 32, x, y, 32, 32); } catch(err){}
+    }));
+    const done = Math.min(jobs.length, i + 24); prog('libProg', done / jobs.length);
+    $('libInfo').textContent = `Decoding ${done} / ${jobs.length} frames…`;
+  }
+  return items;
+}
+async function pngToAtlas(bytes, cols){
+  const bmp = await createImageBitmap(new Blob([bytes], {type:'image/png'}));
+  Lib.cols = cols; newAtlas(bmp.width, bmp.height); Lib.actx.drawImage(bmp, 0, 0);
+}
+async function libFromPack(file){
+  $('libInfo').textContent = 'Reading library pack…'; prog('libProg', 0.3);
+  const d = JSON.parse(await file.text());
+  if (d.app !== 'mojipic-library' || !Array.isArray(d.items) || !d.atlas) throw new Error('Not a Mojipic library pack');
+  await pngToAtlas(Enc.unb64(d.atlas.replace(/^data:[^,]*,/, '')), d.cols || 64);
+  return d.items.map(([id, name, cat, start, n, type]) => ({id, name, cat, start, n, type}));
+}
+// IndexedDB cache so the library only has to be loaded once
+const IDB = {
+  open(){ return new Promise((res, rej) => { const r = indexedDB.open('mojipic', 1); r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); },
+  async run(mode, fn){ const db = await this.open(); return new Promise((res, rej) => { const t = db.transaction('kv', mode), q = fn(t.objectStore('kv')); t.oncomplete = () => res(q && q.result); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error); }); },
+  get(k){ return this.run('readonly', s => s.get(k)); },
+  set(k, v){ return this.run('readwrite', s => s.put(v, k)); },
+  del(k){ return this.run('readwrite', s => s.delete(k)); }
+};
+async function libSave(){
+  try {
+    const blob = await new Promise(r => Lib.atlas.toBlob(r, 'image/png'));
+    const png = await blob.arrayBuffer();
+    await IDB.set('library', {cols:Lib.cols, items:Lib.items.map(it => [it.id, it.name, it.cat, it.start, it.n, it.type]), png});
+    return true;
+  } catch(e){ log('Could not remember the library: ' + errText(e)); return false; }
+}
+function libReady(note){
+  const cats = [...new Set(Lib.items.map(i => i.cat))].sort();
+  $('libCat').innerHTML = '<option value="">All categories</option>' + cats.map(c => `<option>${c.replace(/</g,'&lt;')}</option>`).join('');
+  $('libControls').hidden = false; $('libForget').hidden = false;
+  $('libInfo').textContent = `${Lib.items.length} pictures in ${cats.length} categories${note ? ' · ' + note : ''}`;
+  prog('libProg', 0); renderLib();
 }
 $('apkFile').onchange = async e => {
   const f = e.target.files[0]; if (!f) return;
-  $('libInfo').textContent = 'Reading APK…'; prog('libProg', 0.02);
   try {
-    Lib.zip = await openZip(f);
-    const groups = new Map();
-    for (const name of Lib.zip.entries.keys()){
-      const m = name.match(/^assets\/categories\/([^/]+)\/(\d+)_([^/]+)\/([^/]+\.(?:bmp|jpg|jpeg|png))$/i);
-      if (!m) continue;
-      const key = m[1] + '/' + m[2] + '_' + m[3];
-      if (!groups.has(key)) groups.set(key, {cat:m[1], id:+m[2], name:m[3], frames:[]});
-      groups.get(key).frames.push(name);
-    }
-    if (!groups.size) throw new Error('No Mojipic picture library found in that file');
-    Lib.items = [...groups.values()].map(it => {
-      it.frames.sort((a,b) => natKey(a) < natKey(b) ? -1 : 1);
-      const gif = it.frames.length > 1;
-      it.type = (it.id > 237 && !it.name.includes('(8bit)')) ? (gif ? 1 : 0) : (gif ? 3 : 2);
-      return it;
-    });
-    const cols = 64, rows = Math.ceil(Lib.items.length / cols);
-    Lib.thumbs = document.createElement('canvas'); Lib.thumbs.width = cols*32; Lib.thumbs.height = rows*32;
-    const tctx = Lib.thumbs.getContext('2d'), B = 24;
-    for (let i = 0; i < Lib.items.length; i += B){
-      await Promise.all(Lib.items.slice(i, i+B).map(async (it, j) => {
-        try { const bmp = await createImageBitmap(new Blob([await Lib.zip.read(it.frames[0])])); const k = i + j; it.thumb = k;
-          tctx.drawImage(bmp, 0, 0, 32, 32, (k % cols)*32, Math.floor(k / cols)*32, 32, 32); } catch(err){ it.thumb = -1; }
-      }));
-      const done = Math.min(Lib.items.length, i + B); prog('libProg', done / Lib.items.length);
-      $('libInfo').textContent = `Decoding ${done} / ${Lib.items.length}…`;
-    }
-    const cats = [...new Set(Lib.items.map(i => i.cat))].sort();
-    $('libCat').innerHTML = '<option value="">All categories</option>' + cats.map(c => `<option>${c.replace(/</g,'&lt;')}</option>`).join('');
-    $('libControls').hidden = false;
-    $('libInfo').textContent = `${Lib.items.length} pictures in ${cats.length} categories`;
-    $('btnScan').disabled = !Dev.connected;
-    renderLib();
-  } catch(err){ $('libInfo').textContent = err.message; log('Library: ' + err.message); prog('libProg', 0); }
+    Lib.items = /\.json$/i.test(f.name) || f.type === 'application/json' ? await libFromPack(f) : await libFromApk(f);
+    Lib.sel = null; $('libDetail').hidden = true;
+    const saved = await libSave();
+    libReady(saved ? 'remembered in this browser' : 'not saved (browser storage unavailable)');
+  } catch(err){ $('libInfo').textContent = errText(err); log('Library: ' + errText(err)); prog('libProg', 0); }
+  e.target.value = '';
 };
+$('libForget').onclick = async () => {
+  if (!(await ask('Forget the library in this browser? You can load it again any time.', {ok:'Forget', danger:true}))) return;
+  try { await IDB.del('library'); } catch(e){}
+  Lib.items = []; Lib.sel = null; $('libDetail').hidden = true; $('libControls').hidden = true; $('libForget').hidden = true;
+  $('libGrid').innerHTML = '<span class="muted">No library loaded.</span>'; $('libInfo').textContent = 'Library forgotten.';
+};
+(async () => { // restore remembered library
+  try {
+    const d = await IDB.get('library'); if (!d || !d.png) return;
+    await pngToAtlas(d.png, d.cols);
+    Lib.items = d.items.map(([id, name, cat, start, n, type]) => ({id, name, cat, start, n, type}));
+    libReady('remembered');
+  } catch(e){ log('Library restore: ' + errText(e)); }
+})();
 function renderLib(){
   const q = $('libSearch').value.trim().toLowerCase(), cat = $('libCat').value, only = $('libOnlyDev').checked;
   const list = Lib.items.filter(it => (!cat || it.cat === cat) && (!q || it.name.toLowerCase().includes(q) || String(it.id) === q) && (!only || Lib.onDevice.has(it.id)));
   const grid = $('libGrid'); grid.innerHTML = '';
-  const frag = document.createDocumentFragment(), cols = 64;
+  const frag = document.createDocumentFragment();
   list.slice(0, 900).forEach(it => {
     const d = document.createElement('div'); d.className = 'tile' + (Lib.onDevice.has(it.id) ? ' ondev' : '') + (Lib.sel === it ? ' sel' : '');
     d.title = `${it.name} (#${it.id})`;
     const c = document.createElement('canvas'); c.width = c.height = 32;
-    if (it.thumb >= 0) c.getContext('2d').drawImage(Lib.thumbs, (it.thumb % cols)*32, Math.floor(it.thumb / cols)*32, 32, 32, 0, 0, 32, 32);
+    const [x, y] = atlasXY(it.start); c.getContext('2d').drawImage(Lib.atlas, x, y, 32, 32, 0, 0, 32, 32);
     d.appendChild(c);
-    if (it.frames.length > 1){ const s = document.createElement('span'); s.className = 'badge'; s.textContent = 'GIF'; d.appendChild(s); }
+    if (it.n > 1){ const s = document.createElement('span'); s.className = 'badge'; s.textContent = 'GIF'; d.appendChild(s); }
     d.onclick = () => selectLib(it, d);
     frag.appendChild(d);
   });
@@ -1509,38 +1634,39 @@ function renderLib(){
   grid.appendChild(frag);
   if (list.length > 900){ const m = document.createElement('div'); m.className = 'muted'; m.style.gridColumn = '1/-1'; m.textContent = `Showing 900 of ${list.length}. Search or pick a category to narrow it down.`; grid.appendChild(m); }
 }
-async function selectLib(it, el){
+function selectLib(it, el){
   Lib.sel = it;
   document.querySelectorAll('#libGrid .tile.sel').forEach(x => x.classList.remove('sel')); el && el.classList.add('sel');
   $('libDetail').hidden = false; $('libName').textContent = it.name;
-  $('libMeta').textContent = `id ${it.id} · ${it.cat} · ${it.frames.length} frame${it.frames.length>1?'s':''} · ${it.type < 2 ? '1-bit colour' : 'full colour'}${Lib.onDevice.size ? (Lib.onDevice.has(it.id) ? ' · on display' : ' · not found on display') : ''}`;
-  if (!it.px) it.px = await Promise.all(it.frames.map(decodeFrame));
-  if (Lib.sel === it) animate($('libPreview'), it.px);
+  $('libMeta').textContent = `id ${it.id} · ${it.cat} · ${it.n} frame${it.n>1?'s':''} · ${it.type < 2 ? '1-bit colour' : 'full colour'}${Lib.onDevice.size ? (Lib.onDevice.has(it.id) ? ' · on display' : ' · not found on display') : ''} · upload ≈ ${estUpload(it.n)}`;
+  animate($('libPreview'), libFrames(it));
   $('libDetail').scrollIntoView({behavior:'smooth', block:'nearest'});
 }
 ['libSearch','libCat','libOnlyDev'].forEach(id => $(id).addEventListener('input', renderLib));
 $('libShow').onclick = () => act(async () => { const it = Lib.sel; if (it) await Dev.show(Enc.deviceId(it.type, it.id)); });
 $('libUpload').onclick = () => act(async () => {
   const it = Lib.sel; if (!it) return;
-  if (!it.px) it.px = await Promise.all(it.frames.map(decodeFrame));
-  await Dev.uploadImage(Enc.deviceId(it.type, it.id), Enc.pixelData(it.px, it.type < 2), f => prog('libUpProg', f));
+  await Dev.uploadImage(Enc.deviceId(it.type, it.id), Enc.pixelData(libFrames(it), it.type < 2), f => prog('libUpProg', f));
   Lib.onDevice.add(it.id); toast(`${it.name} uploaded`);
 });
-$('libFav').onclick = async () => { const it = Lib.sel; if (!it) return; if (!it.px) it.px = await Promise.all(it.frames.map(decodeFrame));
-  addImageFav(it.name, it.type, it.id, Enc.pixelData(it.px, it.type < 2)); };
+$('libFav').onclick = () => { const it = Lib.sel; if (!it) return; addImageFav(it.name, it.type, it.id, Enc.pixelData(libFrames(it), it.type < 2)); };
 $('btnScan').onclick = () => act(async () => {
   $('btnScan').disabled = true; $('libInfo').textContent = 'Scanning display memory…';
   try {
     const ids = await Dev.scanIds(f => prog('libProg', f));
     Lib.onDevice = new Set(ids.map(i => i & 4095));
-    $('libInfo').textContent = `${ids.length} pictures stored on the display (green dot)`;
+    const names = Lib.items.length ? '' : ` (ids: ${ids.map(i => i & 4095).slice(0, 60).join(', ')}${ids.length > 60 ? '…' : ''})`;
+    $('libInfo').textContent = `${ids.length} pictures stored on the display` + (Lib.items.length ? ' (green dot)' : names);
     log('Stored ids: ' + ids.map(i => i & 4095).join(', '));
-    renderLib();
-  } finally { $('btnScan').disabled = false; }
+    if (Lib.items.length) renderLib();
+  } finally { $('btnScan').disabled = !Dev.connected; prog('libProg', 0); }
 });
 
-
 /* ---------- Settings ---------- */
+function showUpMode(){ const m = store.get('upMode', 'safe'); document.querySelectorAll('#upModeSeg button').forEach(b => b.classList.toggle('sel', b.dataset.mode === m));
+  const r = store.get('upRate', 0); $('upRateTxt').textContent = r ? `Last measured speed: ${r} packets/s (a still picture is 192 packets)` : 'Speed is measured after your first upload.'; }
+$('upModeSeg').onclick = e => { const b = e.target.closest('button'); if (!b) return; store.set('upMode', b.dataset.mode); showUpMode(); };
+safe(showUpMode, 'upload mode');
 $('autoOff').value = store.get('autoOff', 0);
 $('autoOffSet').onclick = () => act(async () => { const s = Math.max(0, Math.min(180, getInt('autoOff', 0))); $('autoOff').value = s; store.set('autoOff', s); await Dev.autoOff(s); toast(s ? `Display turns off ${s}s after disconnect` : 'Auto-off disabled'); }, true);
 $('autoRe').checked = store.get('autoRe', true);
